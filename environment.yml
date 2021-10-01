@@ -1,0 +1,8 @@
+name: 2p-stabilizer
+channels:
+    - conda-forge
+dependencies:
+    - tifffile
+    - jupyterlab
+    - matplotlib
+    - scipy

@@ -1,0 +1,9 @@
+# python's cache
+__pycache__/*
+**/__pycache__/*
+
+# hidden files
+.*
+
+# unignore gitignore
+!.gitignore
