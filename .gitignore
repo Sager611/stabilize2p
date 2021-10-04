@@ -7,3 +7,10 @@ __pycache__/*
 
 # unignore gitignore
 !.gitignore
+
+# installed pip packages through github
+src
+
+# only allow notebooks in the notebooks/ folder
+notebooks/**
+!notebooks/*.ipynb
