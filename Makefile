@@ -2,7 +2,7 @@
 %.github_install: name=$(word 2,$(subst /, ,$(path)))
 %.github_install:
 	pip install -e git+"https://github.com/$(path)#egg=$(name)"
-github_install: NeLy-EPFL/ofco.github_install NeLy-EPFL/utils2p.github_install NeLy-EPFL/utils_video.github_install
+github_install: NeLy-EPFL/ofco.github_install NeLy-EPFL/utils2p.github_install NeLy-EPFL/utils_video.github_install voxelmorph/voxelmorph.github_install
 
 remove-env:
 	conda env remove -n 2p-stabilizer

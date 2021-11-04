@@ -14,3 +14,11 @@ src
 # only allow notebooks in the notebooks/ folder
 notebooks/**
 !notebooks/*.ipynb
+
+# we do not save voxelmorph's github repo
+voxelmorph
+voxelmorph/**
+
+# we do not save the models (can be big)
+models
+models/**

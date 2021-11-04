@@ -1,0 +1,29 @@
+adrian@SV-87L-004:/mnt/student_hd/adrian/data/input/200901_G23xU1/Fly1/Fly1$ for i in 1 2 3 4 5; do pystackreg "00${i}_coronal/2p/denoised_red.tif" "00${i}_coronal/2p/denoised_red.pystackreg-affine.tif"; done
+saved image path:   /mnt/student_hd/adrian/data/input/200901_G23xU1/Fly1/Fly1/001_coronal/2p/denoised_red.pystackreg-affine.tif
+loading image: /mnt/student_hd/adrian/data/input/200901_G23xU1/Fly1/Fly1/001_coronal/2p/denoised_red.tif
+image shape: (4100, 480, 736)
+Transformation completed in 1150.23s
+saved image:   /mnt/student_hd/adrian/data/input/200901_G23xU1/Fly1/Fly1/001_coronal/2p/denoised_red.pystackreg-affine.tif
+saved image path:   /mnt/student_hd/adrian/data/input/200901_G23xU1/Fly1/Fly1/002_coronal/2p/denoised_red.pystackreg-affine.tif
+loading image: /mnt/student_hd/adrian/data/input/200901_G23xU1/Fly1/Fly1/002_coronal/2p/denoised_red.tif
+image shape: (4100, 480, 736)
+Transformation completed in 1152.26s
+saved image:   /mnt/student_hd/adrian/data/input/200901_G23xU1/Fly1/Fly1/002_coronal/2p/denoised_red.pystackreg-affine.tif
+saved image path:   /mnt/student_hd/adrian/data/input/200901_G23xU1/Fly1/Fly1/003_coronal/2p/denoised_red.pystackreg-affine.tif
+loading image: /mnt/student_hd/adrian/data/input/200901_G23xU1/Fly1/Fly1/003_coronal/2p/denoised_red.tif
+image shape: (4100, 480, 736)
+Transformation completed in 1134.83s
+saved image:   /mnt/student_hd/adrian/data/input/200901_G23xU1/Fly1/Fly1/003_coronal/2p/denoised_red.pystackreg-affine.tif
+saved image path:   /mnt/student_hd/adrian/data/input/200901_G23xU1/Fly1/Fly1/004_coronal/2p/denoised_red.pystackreg-affine.tif
+loading image: /mnt/student_hd/adrian/data/input/200901_G23xU1/Fly1/Fly1/004_coronal/2p/denoised_red.tif
+image shape: (4100, 480, 736)
+Transformation completed in 1109.51s
+saved image:   /mnt/student_hd/adrian/data/input/200901_G23xU1/Fly1/Fly1/004_coronal/2p/denoised_red.pystackreg-affine.tif
+saved image path:   /mnt/student_hd/adrian/data/input/200901_G23xU1/Fly1/Fly1/005_coronal/2p/denoised_red.pystackreg-affine.tif
+loading image: /mnt/student_hd/adrian/data/input/200901_G23xU1/Fly1/Fly1/005_coronal/2p/denoised_red.tif
+image shape: (4100, 480, 736)
+Transformation completed in 1113.98s
+saved image:   /mnt/student_hd/adrian/data/input/200901_G23xU1/Fly1/Fly1/005_coronal/2p/denoised_red.pystackreg-affine.tif
+adrian@SV-87L-004:/mnt/student_hd/adrian/data/input/200901_G23xU1/Fly1/Fly1$
+
+

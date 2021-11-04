@@ -1,0 +1,46 @@
+#!/bin/sh
+
+FROM=$1
+DEST=$2
+
+{ [ -z "$FROM" ] || [ ! -f "$FROM" ]; } && {
+    echo 'provide a tiff input file' >&2
+    exit 1
+}
+
+[ -z "$DEST" ] && DEST="$(echo "$FROM" | sed 's/\.tiff$//').out.tif"
+
+# to full-path
+FROM="$(realpath "$FROM")"
+DEST="$(realpath "$DEST")"
+
+eval "$(conda shell.bash hook)"
+conda activate 2p-stabilizer
+
+python -c "
+import time
+import numpy as np
+from pystackreg import StackReg
+from skimage import io
+
+print('saved image path: $DEST')
+print('loading image:    $FROM')
+img = io.imread('$FROM')
+clip = img[0].mean()
+np.clip(img, clip, None, out=img)
+img = img - clip
+print('loaded and clipped image')
+print('image shape:', img.shape)
+
+sr = StackReg(StackReg.AFFINE)
+
+t1 = time.perf_counter()
+out = sr.register_transform_stack(img, reference='first')
+del img
+t2 = time.perf_counter()
+print(f'Transformation completed in {t2-t1:.2f}s')
+
+io.imsave('$DEST', out)
+
+print('saved image: $DEST')
+"
