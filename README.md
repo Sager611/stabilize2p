@@ -49,4 +49,8 @@ Scripts:
 
 * raw2tiff: transform raw 2-photon video to a TIFF file
 * pystackreg: apply this method to a tiff file to stabilize the video
-* register.py: updated version of Voxelmorph's [register.py](https://github.com/voxelmorph/voxelmorph/blob/dev/scripts/tf/register.py). Used to load a model and register an image
+* register.py: Voxelmorph's [register.py](https://github.com/voxelmorph/voxelmorph/blob/dev/scripts/tf/register.py). Used to load a model and register an image. You need to activate the conda environment first:
+    ```shell
+    eval "$(conda shell.bash hook)"
+    conda activate 2p-stabilizer
+    ```

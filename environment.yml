@@ -7,4 +7,6 @@ dependencies:
     - matplotlib
     - scipy
     - pystackreg 
-    - tensorflow>=2
+    # tensorflow >= 2.4.0 is automatically built with cuda support for Nvidia GPUs;
+    # but, when using conda, we have to install this specific package:
+    - tensorflow-gpu>=2.4.1

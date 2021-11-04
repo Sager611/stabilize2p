@@ -9,8 +9,16 @@ from sklearn.metrics import mean_squared_error
 
 
 def MSE_score(video: np.ndarray, ref: str = 'previous') -> float:
-    """Return MSE score with respect to some reference image."""
-    nb_frame_pixels = np.mul(video.shape[1:])
+    """Return MSE score with respect to some reference image.
+    
+    This method is tested on 2D videos, but should work on 3D videos as well.
+    
+    :param video: numpy array containing the video information
+    :param ref: reference frame/image to use as approx for round-truth.
+        Either: previous, median or mean
+        Default is `'previous'`
+    """
+    nb_frame_pixels = np.prod(video.shape[1:])
     
     if ref == 'previous':
         I = video[:-1].reshape((-1, nb_frame_pixels))
