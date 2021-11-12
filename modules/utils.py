@@ -1,6 +1,7 @@
 """Utility module containing methods used accross the project/notebooks."""
 
 import time
+import logging
 import itertools
 import subprocess
 from tqdm import tqdm
@@ -10,6 +11,7 @@ from concurrent.futures.thread import ThreadPoolExecutor
 
 import cv2
 import numpy as np
+import tensorflow as tf
 from matplotlib import pyplot as plt
 import skimage.measure
 
@@ -265,3 +267,49 @@ def plot_frame_values_3d(frame: np.ndarray, title: str = r"Frame values", pool: 
     if saveto:
         plt.savefig(saveto)
     plt.show()
+
+
+def get_strategy(strategy: str = 'default'):
+    """Load and return the specified Tensorflow's strategy.
+    
+    If :param:`strategy` is 'GPU', then use all GPUs.
+    If :param:`strategy` is 'GPU:0', then use GPU 0.
+    If :param:`strategy` is 'GPU:1', then use GPU 1.
+    etc.
+    """
+    # print device info
+    logging.info(f"Num Physical GPUs Available: {len(tf.config.list_physical_devices('GPU'))}")
+    logging.info(f"Num Logical  GPUs Available: {len(tf.config.list_logical_devices('GPU'))}")
+    logging.info(f"Num TPUs Available: {len(tf.config.list_logical_devices('TPU'))}")
+
+    if not tf.test.is_built_with_cuda():
+        logging.warning('Tensorflow is not built with GPU support!')
+
+    # try to allow growth in case other people are using the GPUs
+    for gpu in tf.config.list_physical_devices('GPU'):
+        try:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        except:
+            logging.warning(f'GPU device "{gpu}" is already initialized.')
+
+    # choose strategy
+    if strategy.lower() == 'tpu' and tf.config.list_physical_devices('TPU'):
+        resolver = tf.distribute.cluster_resolver.TPUClusterResolver(tpu='')
+        tf.config.experimental_connect_to_cluster(resolver)
+        # This is the TPU initialization code that has to be at the beginning.
+        tf.tpu.experimental.initialize_tpu_system(resolver)
+
+        strategy = tf.distribute.TPUStrategy(resolver)
+        logging.info(r'using TPU strategy.')
+    if strategy.lower()[:3] == 'gpu' and tf.config.list_physical_devices('GPU'):
+        if len(strategy) > 3:
+            strategy = tf.distribute.MirroredStrategy([strategy])
+        else:
+            strategy = tf.distribute.MirroredStrategy()
+        logging.info(r'using GPU "MirroredStrategy" strategy.')
+    else:
+        # use default strategy
+        strategy = tf.distribute.get_strategy()
+        logging.info(r'using default strategy.')
+
+    return strategy
