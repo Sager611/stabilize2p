@@ -12,6 +12,7 @@ Welcome to 2p-stabilizer's documentation!
 
    modules
 
+.. include:: ../../README.rst
 
 Indices and tables
 ==================

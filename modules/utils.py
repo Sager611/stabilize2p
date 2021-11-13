@@ -116,7 +116,7 @@ def reconstruct_video(moved_subimgs: np.ndarray,
                       W: int, H: int, stepx: int, stepy: int) -> tuple[np.ndarray, np.ndarray]:
     """Given the splitting of :func:`split_video`, reconstruct it.
     
-    This method is part of :func:`register`.
+    This method is part of :func:`utils.vxm_register`.
     
     .. warning::
         At the moment flow is an empty array.
