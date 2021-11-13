@@ -39,7 +39,7 @@ drwxrwxrwx 1 admin admin 256K Sep  8 02:19 201002_G23xU1/
 -rwxrwxrwx 1 admin admin  696 Sep  8 12:50 nohup.out
 ```
 
-## Additional shell scripts
+## Additional scripts
 
 The `bin/` folder contains scripts you may find useful to deal with the dataset.
 
