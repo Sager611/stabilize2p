@@ -1,4 +1,8 @@
-"""Evaluation metrics module."""
+"""Evaluation metrics module.
+
+.. moduleauthor:: Adrian Sager <adrian.sagerlaganga@epfl.ch>
+
+"""
 
 from typing import Optional
 
@@ -19,6 +23,9 @@ def MSE_score(video: np.ndarray, ref: str = 'previous') -> float:
         Default is `'previous'`
     """
     nb_frame_pixels = np.prod(video.shape[1:])
+    
+    # pre-processing
+    video = video - video.mean()
     
     if ref == 'previous':
         I = video[:-1].reshape((-1, nb_frame_pixels))

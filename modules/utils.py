@@ -1,6 +1,13 @@
-"""Utility module containing methods used accross the project/notebooks."""
+"""Utility module containing methods used accross the project/notebooks.
 
+.. moduleauthor:: Adrian Sager <adrian.sagerlaganga@epfl.ch>
+
+"""
+
+import os
+import math
 import time
+import itertools
 import logging
 import itertools
 import subprocess
@@ -11,10 +18,232 @@ from concurrent.futures.thread import ThreadPoolExecutor
 
 import cv2
 import numpy as np
-import tensorflow as tf
-from matplotlib import pyplot as plt
 import skimage.measure
+import tifffile as tiff
+import tensorflow as tf
+import voxelmorph as vxm
+from matplotlib import pyplot as plt
 
+
+def largest_divisor_lte(n, lim):
+    """Returns the largest divisor of :param:`n` that is less-than or equal to :param:`lim`."""
+    large_divisors = []
+    last_div = 1
+    for i in range(1, int(math.sqrt(n) + 1)):
+        if n % i == 0:
+            if i > lim:
+                return last_div
+            last_div = i
+            if i*i != n:
+                large_divisors.append(n // i)
+    for divisor in reversed(large_divisors):
+        if divisor > lim:
+            return last_div
+        last_div = divisor
+    return n
+
+
+def split_video(path: str, W: int, H: int, target_shape: tuple, stepx: int, stepy: int, batch_size: int = 5, key=None):
+    """Given the path to a tiff file, generate sliding windows of shape :param:`target_shape` for each frame.
+    
+    This method is part of :func:`register`.
+    
+    :param key: specify the frames to analyze.
+        For example: ``key = range(50, 100, 2)``, ``key = [1, 2, 3]``, etc.
+        Defaults to all use all frames.
+    """
+    if key is not None:
+        if type(key) is range:
+            key = [i for i in key]
+        key = set(key)
+
+    with tiff.TiffFile(path) as tif:
+        batch, pos_array, norm_array = [], [], []
+        for fi, page in enumerate(tif.pages):
+
+            # skip unwanted frames
+            if key is not None and fi not in key:
+                continue
+
+            logging.info(f'frame: {fi}')
+            frame = page.asarray()
+            for i, j in itertools.product(range(0, H-target_shape[0] +1, stepy), range(0, W-target_shape[1] +1, stepx)):
+                # col == x ; row == y
+                sub_img = frame[i:i+target_shape[0], j:j+target_shape[1]]
+                
+                # normalize to [0, 1]
+                low, hig = sub_img.min(), sub_img.max()
+                sub_img = (sub_img - low) / (hig - low + 1e-6)
+                
+                batch += [sub_img]
+                pos_array += [[fi, i, j]]
+                norm_array += [[low, hig]]
+                if len(batch) == batch_size:
+                    batch = np.stack(batch)
+
+                    # if the expected input is 3D, simply tile the array
+                    if len(target_shape) > 2:
+                        for _ in range(len(target_shape)-2):
+                            batch = batch[..., np.newaxis]
+                        tile_shape = [1] * len(batch.shape)
+                        tile_shape[3] = target_shape[2]
+                        batch = np.tile(batch, tile_shape)
+
+                    yield batch, np.array(pos_array), np.array(norm_array)
+                    batch = []
+                    pos_array.clear()
+                    norm_array.clear()
+        
+    # last batch
+    if len(batch) > 0:
+        batch = np.stack(batch)
+
+        # if the expected input is 3D, simply tile the array
+        if len(target_shape) > 2:
+            for _ in range(len(target_shape)-2):
+                batch = batch[..., np.newaxis]
+            tile_shape = [1] * len(batch.shape)
+            tile_shape[3] = target_shape[2]
+            batch = np.tile(batch, tile_shape)
+
+        yield batch, np.array(pos_array), np.array(norm_array)
+
+
+def reconstruct_video(moved_subimgs: np.ndarray,
+                      flow_subimgs: np.ndarray,
+                      pos_arrays: np.ndarray,
+                      norm_arrays: np.ndarray,
+                      W: int, H: int, stepx: int, stepy: int) -> tuple[np.ndarray, np.ndarray]:
+    """Given the splitting of :func:`split_video`, reconstruct it.
+    
+    This method is part of :func:`register`.
+    
+    .. warning::
+        At the moment flow is an empty array.
+    
+    TODO: reconstruct flow!!
+    """
+    nb_frames = pos_arrays[-1, 0] + 1
+    out_video = np.empty((nb_frames, H, W))
+    out_flow = np.empty((nb_frames, *flow_subimgs.shape[1:]))
+    subimg_R, subimg_C = moved_subimgs.shape[1:]
+    # subflow_R, subflow_C = flow_subimgs.shape[1:]
+
+    nb_x_subimgs = 1 + (W - subimg_C) // stepx
+    nb_y_subimgs = 1 + (H - subimg_R) // stepy
+
+    marginx = (subimg_C - stepx) // 2
+    marginy = (subimg_R - stepy) // 2
+    logging.info(f'{marginx=} | {marginy=}')
+
+    for (fi, i, j) in pos_arrays:
+        si = (i) // stepy
+        sj = (j) // stepx
+        subimg_i = fi*nb_x_subimgs*nb_y_subimgs + si*nb_x_subimgs + sj
+        
+        off_left, off_up = marginx, marginy
+        if j == 0:
+            off_left = 0
+        if i == 0:
+            off_up = 0
+
+        idx = (fi, slice(i +off_up, i+subimg_R), slice(j +off_left, j+subimg_C))
+        
+        out_video[idx] = moved_subimgs[subimg_i, off_up:, off_left:]
+
+        # unnormalize
+        low, hig = norm_arrays[subimg_i]
+        out_video[idx] = out_video[idx] * (hig - low) + low
+        
+        # out_video[idx] = 1 if (si+sj) % 2 == 0 else 0
+
+        # out_flow[fi, i:i+subflow_R, j:j+subflow_C, :] = flow_subimgs[fi]
+    return out_video, out_flow
+
+
+def vxm_register(video_path: str, model_weights_path: str, batch_size: int = 5, strategy: str = 'default', key=None) -> tuple[np.ndarray, np.ndarray]:
+    """Given a TIFF video path, and a voxelmorph model, stabilize the video.
+    
+    .. warning:: 
+        At the moment flow is an empty array.
+    
+    :param video_path: full-path to the TIFF file.
+    :param model_weights_path: full-path to the `h5` file with the weights for the Voxelmorph model to be used.
+    :param batch_size: size of the batch.
+    :param strategy: either: 'default', 'GPU' (uses all GPUs), 'TPU', 'GPU:0', 'GPU:1', ...
+        Defaults to 'default', which uses the CPU.
+    :param key: specify the frames of :param:`video_path` to analyze.
+        For example: ``key = range(50, 100, 2)``, ``key = [1, 2, 3]``, etc.
+        Defaults to all use all frames.
+    """
+    # decrease logging level for tensorflow
+    PREV_TF_LOGGING_LEVEL = logging.getLogger().level
+    tf.get_logger().setLevel('FATAL')
+    
+    # increase logging level for our code
+    PREV_LOGGING_LEVEL = logging.getLogger().level
+    logging.getLogger().setLevel(logging.INFO)
+
+    # TPU or GPU or CPU
+    strategy = get_strategy(strategy)
+    
+    # load model
+    t1 = time.perf_counter()
+    with strategy.scope():
+        vxm_model = vxm.networks.VxmDense.load(model_weights_path, input_model=None)
+    t2 = time.perf_counter()
+    logging.info(f'Loaded model in {t2-t1:.2g}s')
+    
+    # print model's layers and info
+    vxm_model.summary(line_length = 180)
+    
+    target_shape = tuple(vxm_model.input[0].shape[1:])
+    logging.info(f'{target_shape=}')
+
+    # get width/height info
+    img = tiff.imread(video_path, key=[0])
+    if len(img.shape) != 2:
+        raise ValueError(f'Only frame formats supported are of the shape (W x H). Provided frame shape: {img.shape}')
+    H, W = img.shape
+    del img
+    
+    # setup window sliding parameters
+    stepx = largest_divisor_lte(W - target_shape[1], target_shape[1])
+    stepy = largest_divisor_lte(H - target_shape[0], target_shape[0])
+    
+    moved_subimgs = []
+    flow_subimgs = []
+    pos_arrays = []
+    norm_arrays = []
+
+    t1 = time.perf_counter()
+    for batch, pos_array, norm_array in split_video(video_path, W, H, target_shape, stepx, stepy, batch_size=batch_size, key=key):
+        moved, flow = vxm_model.predict([batch, batch])
+
+        logging.info(f'{moved.shape=} | {flow.shape=}')
+
+        moved_subimgs += [moved[..., 0, 0]]
+        flow_subimgs += [flow[..., 0, :]]
+        pos_arrays += [pos_array]
+        norm_arrays += [norm_array]
+    t2 = time.perf_counter()
+
+    moved_subimgs = np.concatenate(moved_subimgs)
+    flow_subimgs = np.concatenate(flow_subimgs)
+    pos_arrays = np.concatenate(pos_arrays)
+    norm_arrays = np.concatenate(norm_arrays)
+
+    nb_frames = pos_arrays[-1, 0] + 1
+    logging.info(f'Rate: {(t2-t1)/nb_frames : .4g} s / frame')
+
+    out_video, out_flow = reconstruct_video(moved_subimgs, flow_subimgs, pos_arrays, norm_arrays, W, H, stepx, stepy)
+    logging.info(f'{out_video.shape=} | {out_flow.shape=}')
+
+    # return the logging levels as they where before
+    tf.get_logger().setLevel(PREV_TF_LOGGING_LEVEL)
+    logging.getLogger().setLevel(PREV_LOGGING_LEVEL)
+
+    return out_video, out_flow
 
 def resize_shape(shape, original_shape, allow_upsampling=False):
     """
@@ -22,9 +251,8 @@ def resize_shape(shape, original_shape, allow_upsampling=False):
     a new size respecting the ratio between
     width and height.
 
-    Notes
-    -----
-    Taken from: https://github.com/NeLy-EPFL/utils_video/blob/2b18493085576b6432b3eaecd0d6d62845ea3abc/utils_video/utils.py#L25
+    .. note::
+        Taken from: https://github.com/NeLy-EPFL/utils_video/blob/2b18493085576b6432b3eaecd0d6d62845ea3abc/utils_video/utils.py#L25
 
     Parameters
     ----------
@@ -81,9 +309,8 @@ def make_video(video_path: str,
                output_format: str = 'mov'):
     """This function writes a video to file with all frames that the :param:`frame_generator` yields.
 
-    Notes
-    -----
-    Taken and modified from: https://github.com/NeLy-EPFL/utils_video/blob/2b18493085576b6432b3eaecd0d6d62845ea3abc/utils_video/main.py#L10
+    .. note::
+        Taken and modified from: `here <https://github.com/NeLy-EPFL/utils_video/blob/2b18493085576b6432b3eaecd0d6d62845ea3abc/utils_video/main.py#L10/>`_
 
     :param video_path: Name/path to the output file.
     :param frame_generator: Generator yielding individual frames.
@@ -272,10 +499,15 @@ def plot_frame_values_3d(frame: np.ndarray, title: str = r"Frame values", pool: 
 def get_strategy(strategy: str = 'default'):
     """Load and return the specified Tensorflow's strategy.
     
-    If :param:`strategy` is 'GPU', then use all GPUs.
-    If :param:`strategy` is 'GPU:0', then use GPU 0.
-    If :param:`strategy` is 'GPU:1', then use GPU 1.
-    etc.
+    :param strategy: either:
+        * 'default' (CPU, defaults to this)
+        * 'GPU'
+        * 'TPU'
+        * 'GPU:<gpu-index>':
+            If :param:`strategy` is 'GPU', then use all GPUs.
+            If :param:`strategy` is 'GPU:0', then use GPU 0.
+            If :param:`strategy` is 'GPU:1', then use GPU 1.
+            etc.
     """
     # print device info
     logging.info(f"Num Physical GPUs Available: {len(tf.config.list_physical_devices('GPU'))}")
