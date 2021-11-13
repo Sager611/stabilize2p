@@ -15,6 +15,8 @@
     <script src="_static/doctools.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="utils module" href="utils.html" />
+    <link rel="prev" title="modules" href="modules.html" />
    
   <link rel="stylesheet" href="_static/custom.css" type="text/css" />
   
@@ -31,8 +33,58 @@
 
           <div class="body" role="main">
             
-  <section id="metrics-module">
-<h1>metrics module<a class="headerlink" href="#metrics-module" title="Permalink to this headline">¶</a></h1>
+  <section id="module-metrics">
+<span id="metrics-module"></span><h1>metrics module<a class="headerlink" href="#module-metrics" title="Permalink to this headline">¶</a></h1>
+<p>Evaluation metrics module.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="metrics.MSE_score">
+<span class="sig-prename descclassname"><span class="pre">metrics.</span></span><span class="sig-name descname"><span class="pre">MSE_score</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">numpy.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">'previous'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="_modules/metrics.html#MSE_score"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#metrics.MSE_score" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return MSE score with respect to some reference image.</p>
+<p>This method is tested on 2D videos, but should work on 3D videos as well.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>video</strong> – numpy array containing the video information</p></li>
+<li><p><strong>ref</strong> – reference frame/image to use as approx for round-truth.
+Either: previous, median or mean
+Default is <cite>‘previous’</cite></p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="metrics.cont_dice_scores">
+<span class="sig-prename descclassname"><span class="pre">metrics.</span></span><span class="sig-name descname"><span class="pre">cont_dice_scores</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">numpy.ndarray</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="_modules/metrics.html#cont_dice_scores"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#metrics.cont_dice_scores" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="metrics.failure_score">
+<span class="sig-prename descclassname"><span class="pre">metrics.</span></span><span class="sig-name descname"><span class="pre">failure_score</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">numpy.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frame_shape</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">numpy.ndarray</span></span></span><a class="reference internal" href="_modules/metrics.html#failure_score"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#metrics.failure_score" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return percentage of frames considered ‘failed’ due to remoteness to the center.</p>
+<p>An important assumption this score makes is that the mean over the centers of mass of
+the input <a href="#id1"><span class="problematic" id="id2">:param:`video`</span></a> is suposed to represent a proper center were all axons are
+visible.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="metrics.get_centers">
+<span class="sig-prename descclassname"><span class="pre">metrics.</span></span><span class="sig-name descname"><span class="pre">get_centers</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">numpy.ndarray</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">numpy.ndarray</span></span></span><a class="reference internal" href="_modules/metrics.html#get_centers"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#metrics.get_centers" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return each frame’s center of mass.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="metrics.get_correlation_scores">
+<span class="sig-prename descclassname"><span class="pre">metrics.</span></span><span class="sig-name descname"><span class="pre">get_correlation_scores</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">numpy.ndarray</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">numpy.ndarray</span></span></span><a class="reference internal" href="_modules/metrics.html#get_correlation_scores"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#metrics.get_correlation_scores" title="Permalink to this definition">¶</a></dt>
+<dd><p>For each frame, return a score from 0 to 1 on how correlated it is to the mean frame.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="metrics.get_correlation_scores_prev">
+<span class="sig-prename descclassname"><span class="pre">metrics.</span></span><span class="sig-name descname"><span class="pre">get_correlation_scores_prev</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">numpy.ndarray</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">numpy.ndarray</span></span></span><a class="reference internal" href="_modules/metrics.html#get_correlation_scores_prev"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#metrics.get_correlation_scores_prev" title="Permalink to this definition">¶</a></dt>
+<dd><p>For each frame, return a score from 0 to 1 on how correlated it is to the next frame.</p>
+</dd></dl>
+
 </section>
 
 
@@ -52,11 +104,23 @@
 
 
 <h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="modules.html">modules</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">metrics module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="utils.html">utils module</a></li>
+</ul>
+</li>
+</ul>
 
 <div class="relations">
 <h3>Related Topics</h3>
 <ul>
   <li><a href="index.html">Documentation overview</a><ul>
+  <li><a href="modules.html">modules</a><ul>
+      <li>Previous: <a href="modules.html" title="previous chapter">modules</a></li>
+      <li>Next: <a href="utils.html" title="next chapter">utils module</a></li>
+  </ul></li>
   </ul></li>
 </ul>
 </div>

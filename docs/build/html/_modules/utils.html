@@ -1,0 +1,648 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>utils &#8212; 2p-stabilizer  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css" />
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for utils</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Utility module containing methods used accross the project/notebooks.</span>
+
+<span class="sd">.. moduleauthor:: Adrian Sager &lt;adrian.sagerlaganga@epfl.ch&gt;</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">itertools</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">itertools</span>
+<span class="kn">import</span> <span class="nn">subprocess</span>
+<span class="kn">from</span> <span class="nn">tqdm</span> <span class="kn">import</span> <span class="n">tqdm</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Iterable</span>
+<span class="kn">from</span> <span class="nn">concurrent.futures.thread</span> <span class="kn">import</span> <span class="n">ThreadPoolExecutor</span>
+
+<span class="kn">import</span> <span class="nn">cv2</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">skimage.measure</span>
+<span class="kn">import</span> <span class="nn">tifffile</span> <span class="k">as</span> <span class="nn">tiff</span>
+<span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+<span class="kn">import</span> <span class="nn">voxelmorph</span> <span class="k">as</span> <span class="nn">vxm</span>
+<span class="kn">from</span> <span class="nn">matplotlib</span> <span class="kn">import</span> <span class="n">pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+
+
+<div class="viewcode-block" id="largest_divisor_lte"><a class="viewcode-back" href="../utils.html#utils.largest_divisor_lte">[docs]</a><span class="k">def</span> <span class="nf">largest_divisor_lte</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">lim</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Returns the largest divisor of :param:`n` that is less-than or equal to :param:`lim`.&quot;&quot;&quot;</span>
+    <span class="n">large_divisors</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">last_div</span> <span class="o">=</span> <span class="mi">1</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">%</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">&gt;</span> <span class="n">lim</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">last_div</span>
+            <span class="n">last_div</span> <span class="o">=</span> <span class="n">i</span>
+            <span class="k">if</span> <span class="n">i</span><span class="o">*</span><span class="n">i</span> <span class="o">!=</span> <span class="n">n</span><span class="p">:</span>
+                <span class="n">large_divisors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">n</span> <span class="o">//</span> <span class="n">i</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">divisor</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="n">large_divisors</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">divisor</span> <span class="o">&gt;</span> <span class="n">lim</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">last_div</span>
+        <span class="n">last_div</span> <span class="o">=</span> <span class="n">divisor</span>
+    <span class="k">return</span> <span class="n">n</span></div>
+
+
+<div class="viewcode-block" id="split_video"><a class="viewcode-back" href="../utils.html#utils.split_video">[docs]</a><span class="k">def</span> <span class="nf">split_video</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">W</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">H</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">target_shape</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">,</span> <span class="n">stepx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">stepy</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Given the path to a tiff file, generate sliding windows of shape :param:`target_shape` for each frame.</span>
+<span class="sd">    </span>
+<span class="sd">    This method is part of :func:`register`.</span>
+<span class="sd">    </span>
+<span class="sd">    :param key: specify the frames to analyze.</span>
+<span class="sd">        For example: ``key = range(50, 100, 2)``, ``key = [1, 2, 3]``, etc.</span>
+<span class="sd">        Defaults to all use all frames.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">key</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">key</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">range</span><span class="p">:</span>
+            <span class="n">key</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">key</span><span class="p">]</span>
+        <span class="n">key</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="n">tiff</span><span class="o">.</span><span class="n">TiffFile</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="k">as</span> <span class="n">tif</span><span class="p">:</span>
+        <span class="n">batch</span><span class="p">,</span> <span class="n">pos_array</span><span class="p">,</span> <span class="n">norm_array</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[],</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">fi</span><span class="p">,</span> <span class="n">page</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">tif</span><span class="o">.</span><span class="n">pages</span><span class="p">):</span>
+
+            <span class="c1"># skip unwanted frames</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">fi</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">key</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+            <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;frame: </span><span class="si">{</span><span class="n">fi</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="n">frame</span> <span class="o">=</span> <span class="n">page</span><span class="o">.</span><span class="n">asarray</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">H</span><span class="o">-</span><span class="n">target_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="n">stepy</span><span class="p">),</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">W</span><span class="o">-</span><span class="n">target_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="n">stepx</span><span class="p">)):</span>
+                <span class="c1"># col == x ; row == y</span>
+                <span class="n">sub_img</span> <span class="o">=</span> <span class="n">frame</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="n">target_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">j</span><span class="p">:</span><span class="n">j</span><span class="o">+</span><span class="n">target_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+                
+                <span class="c1"># normalize to [0, 1]</span>
+                <span class="n">low</span><span class="p">,</span> <span class="n">hig</span> <span class="o">=</span> <span class="n">sub_img</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">sub_img</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+                <span class="n">sub_img</span> <span class="o">=</span> <span class="p">(</span><span class="n">sub_img</span> <span class="o">-</span> <span class="n">low</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">hig</span> <span class="o">-</span> <span class="n">low</span> <span class="o">+</span> <span class="mf">1e-6</span><span class="p">)</span>
+                
+                <span class="n">batch</span> <span class="o">+=</span> <span class="p">[</span><span class="n">sub_img</span><span class="p">]</span>
+                <span class="n">pos_array</span> <span class="o">+=</span> <span class="p">[[</span><span class="n">fi</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]]</span>
+                <span class="n">norm_array</span> <span class="o">+=</span> <span class="p">[[</span><span class="n">low</span><span class="p">,</span> <span class="n">hig</span><span class="p">]]</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span> <span class="o">==</span> <span class="n">batch_size</span><span class="p">:</span>
+                    <span class="n">batch</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+
+                    <span class="c1"># if the expected input is 3D, simply tile the array</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">target_shape</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+                        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">target_shape</span><span class="p">)</span><span class="o">-</span><span class="mi">2</span><span class="p">):</span>
+                            <span class="n">batch</span> <span class="o">=</span> <span class="n">batch</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
+                        <span class="n">tile_shape</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+                        <span class="n">tile_shape</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">target_shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+                        <span class="n">batch</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">batch</span><span class="p">,</span> <span class="n">tile_shape</span><span class="p">)</span>
+
+                    <span class="k">yield</span> <span class="n">batch</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">pos_array</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">norm_array</span><span class="p">)</span>
+                    <span class="n">batch</span> <span class="o">=</span> <span class="p">[]</span>
+                    <span class="n">pos_array</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+                    <span class="n">norm_array</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        
+    <span class="c1"># last batch</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">batch</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">batch</span><span class="p">)</span>
+
+        <span class="c1"># if the expected input is 3D, simply tile the array</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">target_shape</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">target_shape</span><span class="p">)</span><span class="o">-</span><span class="mi">2</span><span class="p">):</span>
+                <span class="n">batch</span> <span class="o">=</span> <span class="n">batch</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
+            <span class="n">tile_shape</span> <span class="o">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+            <span class="n">tile_shape</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">target_shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+            <span class="n">batch</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">batch</span><span class="p">,</span> <span class="n">tile_shape</span><span class="p">)</span>
+
+        <span class="k">yield</span> <span class="n">batch</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">pos_array</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">norm_array</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="reconstruct_video"><a class="viewcode-back" href="../utils.html#utils.reconstruct_video">[docs]</a><span class="k">def</span> <span class="nf">reconstruct_video</span><span class="p">(</span><span class="n">moved_subimgs</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+                      <span class="n">flow_subimgs</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+                      <span class="n">pos_arrays</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+                      <span class="n">norm_arrays</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+                      <span class="n">W</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">H</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">stepx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">stepy</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Given the splitting of :func:`split_video`, reconstruct it.</span>
+<span class="sd">    </span>
+<span class="sd">    This method is part of :func:`register`.</span>
+<span class="sd">    </span>
+<span class="sd">    .. warning::</span>
+<span class="sd">        At the moment flow is an empty array.</span>
+<span class="sd">    </span>
+<span class="sd">    TODO: reconstruct flow!!</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">nb_frames</span> <span class="o">=</span> <span class="n">pos_arrays</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="n">out_video</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">nb_frames</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">W</span><span class="p">))</span>
+    <span class="n">out_flow</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">nb_frames</span><span class="p">,</span> <span class="o">*</span><span class="n">flow_subimgs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]))</span>
+    <span class="n">subimg_R</span><span class="p">,</span> <span class="n">subimg_C</span> <span class="o">=</span> <span class="n">moved_subimgs</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+    <span class="c1"># subflow_R, subflow_C = flow_subimgs.shape[1:]</span>
+
+    <span class="n">nb_x_subimgs</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="p">(</span><span class="n">W</span> <span class="o">-</span> <span class="n">subimg_C</span><span class="p">)</span> <span class="o">//</span> <span class="n">stepx</span>
+    <span class="n">nb_y_subimgs</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="p">(</span><span class="n">H</span> <span class="o">-</span> <span class="n">subimg_R</span><span class="p">)</span> <span class="o">//</span> <span class="n">stepy</span>
+
+    <span class="n">marginx</span> <span class="o">=</span> <span class="p">(</span><span class="n">subimg_C</span> <span class="o">-</span> <span class="n">stepx</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span>
+    <span class="n">marginy</span> <span class="o">=</span> <span class="p">(</span><span class="n">subimg_R</span> <span class="o">-</span> <span class="n">stepy</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">marginx</span><span class="si">=}</span><span class="s1"> | </span><span class="si">{</span><span class="n">marginy</span><span class="si">=}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="p">(</span><span class="n">fi</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span> <span class="ow">in</span> <span class="n">pos_arrays</span><span class="p">:</span>
+        <span class="n">si</span> <span class="o">=</span> <span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="o">//</span> <span class="n">stepy</span>
+        <span class="n">sj</span> <span class="o">=</span> <span class="p">(</span><span class="n">j</span><span class="p">)</span> <span class="o">//</span> <span class="n">stepx</span>
+        <span class="n">subimg_i</span> <span class="o">=</span> <span class="n">fi</span><span class="o">*</span><span class="n">nb_x_subimgs</span><span class="o">*</span><span class="n">nb_y_subimgs</span> <span class="o">+</span> <span class="n">si</span><span class="o">*</span><span class="n">nb_x_subimgs</span> <span class="o">+</span> <span class="n">sj</span>
+        
+        <span class="n">off_left</span><span class="p">,</span> <span class="n">off_up</span> <span class="o">=</span> <span class="n">marginx</span><span class="p">,</span> <span class="n">marginy</span>
+        <span class="k">if</span> <span class="n">j</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">off_left</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">off_up</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="n">idx</span> <span class="o">=</span> <span class="p">(</span><span class="n">fi</span><span class="p">,</span> <span class="nb">slice</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span><span class="n">off_up</span><span class="p">,</span> <span class="n">i</span><span class="o">+</span><span class="n">subimg_R</span><span class="p">),</span> <span class="nb">slice</span><span class="p">(</span><span class="n">j</span> <span class="o">+</span><span class="n">off_left</span><span class="p">,</span> <span class="n">j</span><span class="o">+</span><span class="n">subimg_C</span><span class="p">))</span>
+        
+        <span class="n">out_video</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">moved_subimgs</span><span class="p">[</span><span class="n">subimg_i</span><span class="p">,</span> <span class="n">off_up</span><span class="p">:,</span> <span class="n">off_left</span><span class="p">:]</span>
+
+        <span class="c1"># unnormalize</span>
+        <span class="n">low</span><span class="p">,</span> <span class="n">hig</span> <span class="o">=</span> <span class="n">norm_arrays</span><span class="p">[</span><span class="n">subimg_i</span><span class="p">]</span>
+        <span class="n">out_video</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">out_video</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">hig</span> <span class="o">-</span> <span class="n">low</span><span class="p">)</span> <span class="o">+</span> <span class="n">low</span>
+        
+        <span class="c1"># out_video[idx] = 1 if (si+sj) % 2 == 0 else 0</span>
+
+        <span class="c1"># out_flow[fi, i:i+subflow_R, j:j+subflow_C, :] = flow_subimgs[fi]</span>
+    <span class="k">return</span> <span class="n">out_video</span><span class="p">,</span> <span class="n">out_flow</span></div>
+
+
+<div class="viewcode-block" id="vxm_register"><a class="viewcode-back" href="../utils.html#utils.vxm_register">[docs]</a><span class="k">def</span> <span class="nf">vxm_register</span><span class="p">(</span><span class="n">video_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">model_weights_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span> <span class="n">strategy</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;default&#39;</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sd">&quot;&quot;&quot;Given a TIFF video path, and a voxelmorph model, stabilize the video.</span>
+<span class="sd">    </span>
+<span class="sd">    .. warning:: </span>
+<span class="sd">        At the moment flow is an empty array.</span>
+<span class="sd">    </span>
+<span class="sd">    :param video_path: full-path to the TIFF file.</span>
+<span class="sd">    :param model_weights_path: full-path to the `h5` file with the weights for the Voxelmorph model to be used.</span>
+<span class="sd">    :param batch_size: size of the batch.</span>
+<span class="sd">    :param strategy: either: &#39;default&#39;, &#39;GPU&#39; (uses all GPUs), &#39;TPU&#39;, &#39;GPU:0&#39;, &#39;GPU:1&#39;, ...</span>
+<span class="sd">        Defaults to &#39;default&#39;, which uses the CPU.</span>
+<span class="sd">    :param key: specify the frames of :param:`video_path` to analyze.</span>
+<span class="sd">        For example: ``key = range(50, 100, 2)``, ``key = [1, 2, 3]``, etc.</span>
+<span class="sd">        Defaults to all use all frames.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># decrease logging level for tensorflow</span>
+    <span class="n">PREV_TF_LOGGING_LEVEL</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">()</span><span class="o">.</span><span class="n">level</span>
+    <span class="n">tf</span><span class="o">.</span><span class="n">get_logger</span><span class="p">()</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="s1">&#39;FATAL&#39;</span><span class="p">)</span>
+    
+    <span class="c1"># increase logging level for our code</span>
+    <span class="n">PREV_LOGGING_LEVEL</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">()</span><span class="o">.</span><span class="n">level</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">()</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+
+    <span class="c1"># TPU or GPU or CPU</span>
+    <span class="n">strategy</span> <span class="o">=</span> <span class="n">get_strategy</span><span class="p">(</span><span class="n">strategy</span><span class="p">)</span>
+    
+    <span class="c1"># load model</span>
+    <span class="n">t1</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+    <span class="k">with</span> <span class="n">strategy</span><span class="o">.</span><span class="n">scope</span><span class="p">():</span>
+        <span class="n">vxm_model</span> <span class="o">=</span> <span class="n">vxm</span><span class="o">.</span><span class="n">networks</span><span class="o">.</span><span class="n">VxmDense</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">model_weights_path</span><span class="p">,</span> <span class="n">input_model</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+    <span class="n">t2</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Loaded model in </span><span class="si">{</span><span class="n">t2</span><span class="o">-</span><span class="n">t1</span><span class="si">:</span><span class="s1">.2g</span><span class="si">}</span><span class="s1">s&#39;</span><span class="p">)</span>
+    
+    <span class="c1"># print model&#39;s layers and info</span>
+    <span class="n">vxm_model</span><span class="o">.</span><span class="n">summary</span><span class="p">(</span><span class="n">line_length</span> <span class="o">=</span> <span class="mi">180</span><span class="p">)</span>
+    
+    <span class="n">target_shape</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">vxm_model</span><span class="o">.</span><span class="n">input</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">target_shape</span><span class="si">=}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+    <span class="c1"># get width/height info</span>
+    <span class="n">img</span> <span class="o">=</span> <span class="n">tiff</span><span class="o">.</span><span class="n">imread</span><span class="p">(</span><span class="n">video_path</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">img</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Only frame formats supported are of the shape (W x H). Provided frame shape: </span><span class="si">{</span><span class="n">img</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="n">H</span><span class="p">,</span> <span class="n">W</span> <span class="o">=</span> <span class="n">img</span><span class="o">.</span><span class="n">shape</span>
+    <span class="k">del</span> <span class="n">img</span>
+    
+    <span class="c1"># setup window sliding parameters</span>
+    <span class="n">stepx</span> <span class="o">=</span> <span class="n">largest_divisor_lte</span><span class="p">(</span><span class="n">W</span> <span class="o">-</span> <span class="n">target_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">target_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">stepy</span> <span class="o">=</span> <span class="n">largest_divisor_lte</span><span class="p">(</span><span class="n">H</span> <span class="o">-</span> <span class="n">target_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">target_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    
+    <span class="n">moved_subimgs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">flow_subimgs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">pos_arrays</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">norm_arrays</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="n">t1</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">batch</span><span class="p">,</span> <span class="n">pos_array</span><span class="p">,</span> <span class="n">norm_array</span> <span class="ow">in</span> <span class="n">split_video</span><span class="p">(</span><span class="n">video_path</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">target_shape</span><span class="p">,</span> <span class="n">stepx</span><span class="p">,</span> <span class="n">stepy</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">):</span>
+        <span class="n">moved</span><span class="p">,</span> <span class="n">flow</span> <span class="o">=</span> <span class="n">vxm_model</span><span class="o">.</span><span class="n">predict</span><span class="p">([</span><span class="n">batch</span><span class="p">,</span> <span class="n">batch</span><span class="p">])</span>
+
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">moved</span><span class="o">.</span><span class="n">shape</span><span class="si">=}</span><span class="s1"> | </span><span class="si">{</span><span class="n">flow</span><span class="o">.</span><span class="n">shape</span><span class="si">=}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="n">moved_subimgs</span> <span class="o">+=</span> <span class="p">[</span><span class="n">moved</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]]</span>
+        <span class="n">flow_subimgs</span> <span class="o">+=</span> <span class="p">[</span><span class="n">flow</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="p">:]]</span>
+        <span class="n">pos_arrays</span> <span class="o">+=</span> <span class="p">[</span><span class="n">pos_array</span><span class="p">]</span>
+        <span class="n">norm_arrays</span> <span class="o">+=</span> <span class="p">[</span><span class="n">norm_array</span><span class="p">]</span>
+    <span class="n">t2</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+
+    <span class="n">moved_subimgs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">moved_subimgs</span><span class="p">)</span>
+    <span class="n">flow_subimgs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">flow_subimgs</span><span class="p">)</span>
+    <span class="n">pos_arrays</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">pos_arrays</span><span class="p">)</span>
+    <span class="n">norm_arrays</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">norm_arrays</span><span class="p">)</span>
+
+    <span class="n">nb_frames</span> <span class="o">=</span> <span class="n">pos_arrays</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Rate: </span><span class="si">{</span><span class="p">(</span><span class="n">t2</span><span class="o">-</span><span class="n">t1</span><span class="p">)</span><span class="o">/</span><span class="n">nb_frames</span> <span class="si">:</span><span class="s1"> .4g</span><span class="si">}</span><span class="s1"> s / frame&#39;</span><span class="p">)</span>
+
+    <span class="n">out_video</span><span class="p">,</span> <span class="n">out_flow</span> <span class="o">=</span> <span class="n">reconstruct_video</span><span class="p">(</span><span class="n">moved_subimgs</span><span class="p">,</span> <span class="n">flow_subimgs</span><span class="p">,</span> <span class="n">pos_arrays</span><span class="p">,</span> <span class="n">norm_arrays</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">stepx</span><span class="p">,</span> <span class="n">stepy</span><span class="p">)</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">out_video</span><span class="o">.</span><span class="n">shape</span><span class="si">=}</span><span class="s1"> | </span><span class="si">{</span><span class="n">out_flow</span><span class="o">.</span><span class="n">shape</span><span class="si">=}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+    <span class="c1"># return the logging levels as they where before</span>
+    <span class="n">tf</span><span class="o">.</span><span class="n">get_logger</span><span class="p">()</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">PREV_TF_LOGGING_LEVEL</span><span class="p">)</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">()</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">PREV_LOGGING_LEVEL</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">out_video</span><span class="p">,</span> <span class="n">out_flow</span></div>
+
+<div class="viewcode-block" id="resize_shape"><a class="viewcode-back" href="../utils.html#utils.resize_shape">[docs]</a><span class="k">def</span> <span class="nf">resize_shape</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="n">original_shape</span><span class="p">,</span> <span class="n">allow_upsampling</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function converts an image shape into</span>
+<span class="sd">    a new size respecting the ratio between</span>
+<span class="sd">    width and height.</span>
+
+<span class="sd">    .. note::</span>
+<span class="sd">        Taken from: `here &lt;https://github.com/NeLy-EPFL/utils_video/blob/2b18493085576b6432b3eaecd0d6d62845ea3abc/utils_video/utils.py#L25/&gt;`_</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    shape : tuple of two integers</span>
+<span class="sd">        Desired shape. The tuple and contain one, two</span>
+<span class="sd">        or no -1 entry. If no entry is -1, this argument</span>
+<span class="sd">        is returned. If both entries are -1, `original_shape`</span>
+<span class="sd">        is returned. If only one of the entires is -1, its new</span>
+<span class="sd">        value in `new_shape` is calculated preserving the ratio</span>
+<span class="sd">        of `original_shape`.</span>
+<span class="sd">    original_shape : tuple of two integers</span>
+<span class="sd">        Original shape.</span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    new_shape : tuple of two integers</span>
+<span class="sd">        Resized shape.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;shape has to be of length 2.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">original_shape</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;original_shape has to be of length 2.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">%</span> <span class="mi">1</span> <span class="o">!=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">%</span> <span class="mi">1</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Entries of shape have to be integers.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">original_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">%</span> <span class="mi">1</span> <span class="o">!=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">original_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">%</span> <span class="mi">1</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Entries of original_shape have to be integers.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span> <span class="o">&lt;</span> <span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The values of shape cannot be smaller than -1.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">original_shape</span><span class="p">)</span> <span class="o">&lt;</span> <span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The values of original_shape cannot be smaller than -1.&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span> <span class="ow">and</span> <span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+        <span class="n">new_shape</span> <span class="o">=</span> <span class="n">original_shape</span>
+    <span class="k">elif</span> <span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+        <span class="n">ratio</span> <span class="o">=</span> <span class="n">original_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">original_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">new_shape</span> <span class="o">=</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">ratio</span><span class="p">),</span> <span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">elif</span> <span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">:</span>
+        <span class="n">ratio</span> <span class="o">=</span> <span class="n">original_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">original_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">new_shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">int</span><span class="p">(</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">ratio</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">new_shape</span> <span class="o">=</span> <span class="n">shape</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">allow_upsampling</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">new_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">original_shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">and</span> <span class="n">new_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">original_shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">original_shape</span>
+    <span class="k">return</span> <span class="n">new_shape</span></div>
+
+
+<div class="viewcode-block" id="make_video"><a class="viewcode-back" href="../utils.html#utils.make_video">[docs]</a><span class="k">def</span> <span class="nf">make_video</span><span class="p">(</span><span class="n">video_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+               <span class="n">frame_generator</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">,</span>
+               <span class="n">fps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">9</span><span class="p">,</span>
+               <span class="n">cmap</span><span class="o">=</span><span class="n">cv2</span><span class="o">.</span><span class="n">COLORMAP_VIRIDIS</span><span class="p">,</span>
+               <span class="n">ext</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;mp4&#39;</span><span class="p">,</span>
+               <span class="n">output_shape</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2880</span><span class="p">),</span>
+               <span class="n">n_frames</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
+               <span class="n">output_format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;mov&#39;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This function writes a video to file with all frames that the :param:`frame_generator` yields.</span>
+
+<span class="sd">    .. note::</span>
+<span class="sd">        Taken and modified from: `here &lt;https://github.com/NeLy-EPFL/utils_video/blob/2b18493085576b6432b3eaecd0d6d62845ea3abc/utils_video/main.py#L10/&gt;`_</span>
+
+<span class="sd">    :param video_path: Name/path to the output file.</span>
+<span class="sd">    :param frame_generator: Generator yielding individual frames.</span>
+<span class="sd">    :param fps: Frame rate in frames per second.</span>
+<span class="sd">    :param output_format: format of the output video. Defauts to `&quot;mov&quot;`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">float</span><span class="p">(</span><span class="n">fps</span><span class="p">)</span><span class="o">.</span><span class="n">is_integer</span><span class="p">()</span> <span class="ow">and</span> <span class="nb">int</span><span class="p">(</span><span class="n">fps</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span> <span class="ow">and</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">fps</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">fps</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="kn">import</span> <span class="nn">warnings</span>
+
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Frame rate </span><span class="si">{</span><span class="n">fps</span><span class="si">}</span><span class="s2"> is a power of 2. This can result in faulty video files.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">video_path</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;mov&#39;</span><span class="p">,</span> <span class="s1">&#39;mp4&#39;</span><span class="p">,</span> <span class="s1">&#39;avi&#39;</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Please do not provide an extension to the output video file&#39;</span><span class="p">)</span>
+
+    <span class="c1"># if ext == &#39;mov&#39;:</span>
+    <span class="c1">#     fourcc = cv2.VideoWriter_fourcc(*&quot;DIVX&quot;)</span>
+    <span class="k">if</span> <span class="n">ext</span> <span class="o">==</span> <span class="s1">&#39;mp4&#39;</span><span class="p">:</span>
+        <span class="n">fourcc</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">VideoWriter_fourcc</span><span class="p">(</span><span class="o">*</span><span class="s2">&quot;mp4v&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Invalid extension: </span><span class="si">{</span><span class="n">ext</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">output_format</span> <span class="o">==</span> <span class="s2">&quot;mp4&quot;</span><span class="p">:</span>
+        <span class="n">tmp_video_path</span> <span class="o">=</span> <span class="n">video_path</span> <span class="o">+</span> <span class="s1">&#39;.tmp.&#39;</span> <span class="o">+</span> <span class="n">ext</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">tmp_video_path</span> <span class="o">=</span> <span class="n">video_path</span> <span class="o">+</span> <span class="s1">&#39;.&#39;</span> <span class="o">+</span> <span class="n">ext</span>
+
+    <span class="n">first_frame</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">frame_generator</span><span class="p">)</span>
+    <span class="n">frame_generator</span> <span class="o">=</span> <span class="n">itertools</span><span class="o">.</span><span class="n">chain</span><span class="p">([</span><span class="n">first_frame</span><span class="p">],</span> <span class="n">frame_generator</span><span class="p">)</span>
+    <span class="n">output_shape</span> <span class="o">=</span> <span class="n">resize_shape</span><span class="p">(</span><span class="n">output_shape</span><span class="p">,</span> <span class="n">first_frame</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">2</span><span class="p">])</span>
+    <span class="n">video_writer</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">VideoWriter</span><span class="p">(</span><span class="n">tmp_video_path</span><span class="p">,</span> <span class="n">fourcc</span><span class="p">,</span> <span class="n">fps</span><span class="p">,</span> <span class="n">output_shape</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="k">for</span> <span class="n">frame</span><span class="p">,</span> <span class="n">img</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="nb">enumerate</span><span class="p">(</span><span class="n">frame_generator</span><span class="p">)):</span>
+        <span class="c1"># img_out = cv2.resize(img, output_shape[::-1])</span>
+        <span class="k">if</span> <span class="n">cmap</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">img</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">img</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">img_out</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">applyColorMap</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">cmap</span><span class="p">)</span>
+            <span class="n">img_out</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">cvtColor</span><span class="p">(</span><span class="n">img_out</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">COLOR_BGR2RGB</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">img_out</span> <span class="o">=</span> <span class="n">img</span>
+        <span class="n">img_out</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">cvtColor</span><span class="p">(</span><span class="n">img_out</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">COLOR_BGR2RGB</span><span class="p">)</span>
+        <span class="n">video_writer</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">img_out</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">frame</span> <span class="o">==</span> <span class="n">n_frames</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">break</span>
+
+    <span class="n">video_writer</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>
+
+    <span class="c1"># for some reason, we have to convert using ffmpeg to .mov</span>
+    <span class="c1"># otherwise we cannot see the video in HTML5 in JupyterLab</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;converting video..&#39;</span><span class="p">)</span>
+    <span class="n">t1</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+    <span class="n">conversion_path</span> <span class="o">=</span> <span class="n">video_path</span> <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;.</span><span class="si">{</span><span class="n">output_format</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="s2">&quot;ffmpeg&quot;</span><span class="p">,</span> <span class="s2">&quot;-y&quot;</span><span class="p">,</span> <span class="s2">&quot;-v&quot;</span><span class="p">,</span> <span class="s2">&quot;warning&quot;</span><span class="p">,</span> <span class="s2">&quot;-i&quot;</span><span class="p">,</span> <span class="n">tmp_video_path</span><span class="p">,</span> <span class="s2">&quot;-f&quot;</span><span class="p">,</span> <span class="n">output_format</span><span class="p">,</span> <span class="n">conversion_path</span><span class="p">])</span>
+    <span class="n">t2</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Done (</span><span class="si">{</span><span class="n">t2</span><span class="o">-</span><span class="n">t1</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1">s)&#39;</span><span class="p">)</span>
+
+    <span class="c1"># delete old file</span>
+    <span class="n">Path</span><span class="p">(</span><span class="n">tmp_video_path</span><span class="p">)</span><span class="o">.</span><span class="n">unlink</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="clip_video"><a class="viewcode-back" href="../utils.html#utils.clip_video">[docs]</a><span class="k">def</span> <span class="nf">clip_video</span><span class="p">(</span><span class="n">video</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">q1</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span> <span class="n">q2</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mf">0.95</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Clip :param:`video` in-place according to lower-quantile :param:`q1` and higher-quantile :param:`q2`.&quot;&quot;&quot;</span>
+    <span class="n">low_bound</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="n">video</span><span class="p">,</span> <span class="n">q1</span><span class="p">)</span>
+    <span class="n">hig_bound</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="n">video</span><span class="p">,</span> <span class="n">q2</span><span class="p">)</span>
+
+    <span class="c1"># clip in-place</span>
+    <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">video</span><span class="p">,</span> <span class="n">low_bound</span><span class="p">,</span> <span class="n">hig_bound</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">video</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="segment_video"><a class="viewcode-back" href="../utils.html#utils.segment_video">[docs]</a><span class="k">def</span> <span class="nf">segment_video</span><span class="p">(</span><span class="n">video</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+                  <span class="n">sigma</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+                  <span class="n">num_reps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span><span class="p">,</span>
+                  <span class="n">contrast</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">512.0</span><span class="p">,</span>
+                  <span class="n">apply_threshold</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                  <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Apply a gaussian filter to :param:`video` and use Otsu thresholding.</span>
+
+<span class="sd">    :param sigma: sigma value to use for the gaussian filter.</span>
+<span class="sd">    :param num_reps: how many times to repeat the gaussian filter for each frame.</span>
+<span class="sd">    :param contrast: how much bring the values of the image closer to the mean. Note that higher</span>
+<span class="sd">        values imply lower contrast, and vice-versa.</span>
+<span class="sd">        The following formula is applied to each pixel of each frame:</span>
+<span class="sd">        ```</span>
+<span class="sd">            pixel &lt;- (pixel / mean) ^ (1 / contrast) * mean</span>
+<span class="sd">        ```</span>
+<span class="sd">        Where `mean` is the mean over the pixels of the frame.</span>
+<span class="sd">        If `contrast=1`, then there is no change.</span>
+<span class="sd">    :param apply_threshold: if `False`, perform the pre-processing steps, without applying Otsu</span>
+<span class="sd">        thresholding. It will also not convert the frames to uint8.</span>
+<span class="sd">        Defaults to `True`.</span>
+<span class="sd">    :param *args: extra positional arguments for `cv2.GaussianBlur`.</span>
+<span class="sd">    :param **kwargs: extra keyword arguments for `cv2.GaussianBlur`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># applying a gaussian filter repeatedly is equivalent to this single</span>
+    <span class="c1"># gaussian filter</span>
+    <span class="n">sigma</span> <span class="o">=</span> <span class="n">sigma</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">num_reps</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">loop</span><span class="p">(</span><span class="n">frame</span><span class="p">):</span>
+        <span class="c1"># reduce contrast</span>
+        <span class="n">mean</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+        <span class="n">frame</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">frame</span> <span class="o">/</span> <span class="n">mean</span><span class="p">,</span> <span class="mi">1</span><span class="o">/</span><span class="n">contrast</span><span class="p">)</span> <span class="o">*</span> <span class="n">mean</span>
+        <span class="c1"># to uint8</span>
+        <span class="k">if</span> <span class="n">apply_threshold</span><span class="p">:</span>
+            <span class="n">low</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="mf">0.01</span><span class="p">)</span>
+            <span class="n">std</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">std</span><span class="p">()</span>
+            <span class="n">frame</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(((</span><span class="n">frame</span><span class="o">-</span><span class="n">low</span><span class="p">)</span> <span class="o">/</span> <span class="n">std</span> <span class="o">*</span> <span class="mi">32</span><span class="p">),</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">)</span>
+            <span class="n">frame</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">sigma</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="n">frame</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">GaussianBlur</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">sigma</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="c1"># apply Otsu thresholding</span>
+        <span class="k">if</span> <span class="n">apply_threshold</span><span class="p">:</span>
+            <span class="n">_</span><span class="p">,</span> <span class="n">frame</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">threshold</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">THRESH_OTSU</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">frame</span>
+
+    <span class="c1"># use parallelism</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">with</span> <span class="n">ThreadPoolExecutor</span><span class="p">()</span> <span class="k">as</span> <span class="n">executor</span><span class="p">:</span>
+        <span class="n">futures</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">executor</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="n">loop</span><span class="p">,</span> <span class="n">frame</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">frame</span> <span class="ow">in</span> <span class="n">video</span>
+        <span class="p">]</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">result</span><span class="p">()</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">futures</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">res</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="blur_video"><a class="viewcode-back" href="../utils.html#utils.blur_video">[docs]</a><span class="k">def</span> <span class="nf">blur_video</span><span class="p">(</span><span class="n">video</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+               <span class="n">ksize</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">15</span><span class="p">),</span>
+               <span class="n">sigmaX</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+               <span class="n">num_reps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+               <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Apply a gaussian filter to :param:`video`.&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">loop</span><span class="p">(</span><span class="n">frame</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_reps</span><span class="p">):</span>
+            <span class="n">frame</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">GaussianBlur</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">ksize</span><span class="p">,</span> <span class="n">sigmaX</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">frame</span>
+
+    <span class="c1"># use parallelism</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">with</span> <span class="n">ThreadPoolExecutor</span><span class="p">()</span> <span class="k">as</span> <span class="n">executor</span><span class="p">:</span>
+        <span class="n">futures</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">executor</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="n">loop</span><span class="p">,</span> <span class="n">frame</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">frame</span> <span class="ow">in</span> <span class="n">video</span>
+        <span class="p">]</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">result</span><span class="p">()</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">futures</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">res</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="plot_frame_values_3d"><a class="viewcode-back" href="../utils.html#utils.plot_frame_values_3d">[docs]</a><span class="k">def</span> <span class="nf">plot_frame_values_3d</span><span class="p">(</span><span class="n">frame</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;Frame values&quot;</span><span class="p">,</span> <span class="n">pool</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">15</span><span class="p">,</span> <span class="n">size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span> <span class="n">saveto</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Generate 3d bar plot of :param:`frame`.</span>
+
+<span class="sd">    :param frame: input frame matrix</span>
+<span class="sd">    :param title: title for the plot</span>
+<span class="sd">    :param pool: size of the averaging pool</span>
+<span class="sd">    :param size: length of the bars in the x and y axes. Defaults to `1`.</span>
+<span class="sd">    :param saveto: path to save the plot to. Defaults to `None`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">12</span><span class="p">))</span>
+    <span class="n">ax</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">111</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;3d&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">view_init</span><span class="p">(</span><span class="mi">25</span><span class="p">,</span> <span class="mi">110</span><span class="p">)</span>
+    
+    <span class="n">dz</span> <span class="o">=</span> <span class="n">skimage</span><span class="o">.</span><span class="n">measure</span><span class="o">.</span><span class="n">block_reduce</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="p">(</span><span class="n">pool</span><span class="p">,</span> <span class="n">pool</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">)</span>
+    
+    <span class="n">_x</span><span class="p">,</span> <span class="n">_y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">dz</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">dz</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">xx</span><span class="p">,</span> <span class="n">yy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">_x</span><span class="p">,</span> <span class="n">_y</span><span class="p">)</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">xx</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span> <span class="o">*</span> <span class="n">pool</span><span class="p">,</span> <span class="n">yy</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span> <span class="o">*</span> <span class="n">pool</span>
+    
+    <span class="n">dz</span> <span class="o">=</span> <span class="n">dz</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
+    
+    <span class="n">cmap</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">cm</span><span class="o">.</span><span class="n">get_cmap</span><span class="p">(</span><span class="s1">&#39;jet&#39;</span><span class="p">)</span> <span class="c1"># Get desired colormap - you can change this!</span>
+    <span class="n">max_height</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">dz</span><span class="p">)</span>   <span class="c1"># get range of colorbars so we can normalize</span>
+    <span class="n">min_height</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">dz</span><span class="p">)</span>
+    <span class="c1"># scale each z to [0,1], and get their rgb values</span>
+    <span class="n">rgba</span> <span class="o">=</span> <span class="p">[</span><span class="n">cmap</span><span class="p">((</span><span class="n">k</span><span class="o">-</span><span class="n">min_height</span><span class="p">)</span><span class="o">/</span><span class="n">max_height</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">dz</span><span class="p">]</span>
+    
+    <span class="n">ax</span><span class="o">.</span><span class="n">bar3d</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">dz</span><span class="p">),</span> <span class="n">size</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">dz</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">rgba</span><span class="p">,</span> <span class="n">zsort</span><span class="o">=</span><span class="s1">&#39;average&#39;</span><span class="p">,</span> <span class="n">shade</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;X&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;Y&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">saveto</span><span class="p">:</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">saveto</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="get_strategy"><a class="viewcode-back" href="../utils.html#utils.get_strategy">[docs]</a><span class="k">def</span> <span class="nf">get_strategy</span><span class="p">(</span><span class="n">strategy</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;default&#39;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Load and return the specified Tensorflow&#39;s strategy.</span>
+<span class="sd">    </span>
+<span class="sd">    :param strategy: either:</span>
+<span class="sd">        * &#39;default&#39; (CPU, defaults to this)</span>
+<span class="sd">        * &#39;GPU&#39;</span>
+<span class="sd">        * &#39;TPU&#39;</span>
+<span class="sd">        * &#39;GPU:&lt;gpu-index&gt;&#39;:</span>
+<span class="sd">            If :param:`strategy` is &#39;GPU&#39;, then use all GPUs.</span>
+<span class="sd">            If :param:`strategy` is &#39;GPU:0&#39;, then use GPU 0.</span>
+<span class="sd">            If :param:`strategy` is &#39;GPU:1&#39;, then use GPU 1.</span>
+<span class="sd">            etc.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># print device info</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Num Physical GPUs Available: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">list_physical_devices</span><span class="p">(</span><span class="s1">&#39;GPU&#39;</span><span class="p">))</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Num Logical  GPUs Available: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">list_logical_devices</span><span class="p">(</span><span class="s1">&#39;GPU&#39;</span><span class="p">))</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Num TPUs Available: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">list_logical_devices</span><span class="p">(</span><span class="s1">&#39;TPU&#39;</span><span class="p">))</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">tf</span><span class="o">.</span><span class="n">test</span><span class="o">.</span><span class="n">is_built_with_cuda</span><span class="p">():</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;Tensorflow is not built with GPU support!&#39;</span><span class="p">)</span>
+
+    <span class="c1"># try to allow growth in case other people are using the GPUs</span>
+    <span class="k">for</span> <span class="n">gpu</span> <span class="ow">in</span> <span class="n">tf</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">list_physical_devices</span><span class="p">(</span><span class="s1">&#39;GPU&#39;</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">tf</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">set_memory_growth</span><span class="p">(</span><span class="n">gpu</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;GPU device &quot;</span><span class="si">{</span><span class="n">gpu</span><span class="si">}</span><span class="s1">&quot; is already initialized.&#39;</span><span class="p">)</span>
+
+    <span class="c1"># choose strategy</span>
+    <span class="k">if</span> <span class="n">strategy</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s1">&#39;tpu&#39;</span> <span class="ow">and</span> <span class="n">tf</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">list_physical_devices</span><span class="p">(</span><span class="s1">&#39;TPU&#39;</span><span class="p">):</span>
+        <span class="n">resolver</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">distribute</span><span class="o">.</span><span class="n">cluster_resolver</span><span class="o">.</span><span class="n">TPUClusterResolver</span><span class="p">(</span><span class="n">tpu</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
+        <span class="n">tf</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">experimental_connect_to_cluster</span><span class="p">(</span><span class="n">resolver</span><span class="p">)</span>
+        <span class="c1"># This is the TPU initialization code that has to be at the beginning.</span>
+        <span class="n">tf</span><span class="o">.</span><span class="n">tpu</span><span class="o">.</span><span class="n">experimental</span><span class="o">.</span><span class="n">initialize_tpu_system</span><span class="p">(</span><span class="n">resolver</span><span class="p">)</span>
+
+        <span class="n">strategy</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">distribute</span><span class="o">.</span><span class="n">TPUStrategy</span><span class="p">(</span><span class="n">resolver</span><span class="p">)</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;using TPU strategy.&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">strategy</span><span class="o">.</span><span class="n">lower</span><span class="p">()[:</span><span class="mi">3</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;gpu&#39;</span> <span class="ow">and</span> <span class="n">tf</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">list_physical_devices</span><span class="p">(</span><span class="s1">&#39;GPU&#39;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">strategy</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">3</span><span class="p">:</span>
+            <span class="n">strategy</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">distribute</span><span class="o">.</span><span class="n">MirroredStrategy</span><span class="p">([</span><span class="n">strategy</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">strategy</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">distribute</span><span class="o">.</span><span class="n">MirroredStrategy</span><span class="p">()</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;using GPU &quot;MirroredStrategy&quot; strategy.&#39;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># use default strategy</span>
+        <span class="n">strategy</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">distribute</span><span class="o">.</span><span class="n">get_strategy</span><span class="p">()</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;using default strategy.&#39;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">strategy</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">2p-stabilizer</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../modules.html">modules</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Adrian Sager La Ganga.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.2.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

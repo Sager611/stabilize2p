@@ -252,7 +252,7 @@ def resize_shape(shape, original_shape, allow_upsampling=False):
     width and height.
 
     .. note::
-        Taken from: https://github.com/NeLy-EPFL/utils_video/blob/2b18493085576b6432b3eaecd0d6d62845ea3abc/utils_video/utils.py#L25
+        Taken from: `here <https://github.com/NeLy-EPFL/utils_video/blob/2b18493085576b6432b3eaecd0d6d62845ea3abc/utils_video/utils.py#L25/>`_
 
     Parameters
     ----------

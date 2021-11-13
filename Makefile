@@ -6,7 +6,7 @@ else
 	HAS_CONDA=True
 	ENV_DIR=$(shell conda info --base)
 	MY_ENV_DIR=$(ENV_DIR)/envs/$(CONDA_ENV_NAME)
-	CONDA_ACTIVATE=source $$(conda info --base)/etc/profile.d/conda.sh ; conda activate ; conda activate
+	CONDA_ACTIVATE=. $$(conda info --base)/etc/profile.d/conda.sh ; conda activate ; conda activate
 endif
 
 %.github_install: path=$(@:%.github_install=%)
