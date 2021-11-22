@@ -22,11 +22,48 @@ import skimage.measure
 import tifffile as tiff
 import tensorflow as tf
 import voxelmorph as vxm
+from scipy import ndimage as ndi
 from matplotlib import pyplot as plt
+from skimage.segmentation import watershed
+from skimage.feature import peak_local_max
 
+
+def estimate_background_threshold(image: np.ndarray, num_peaks: int = 2, bins: int = 400) -> float:
+    """Uses the 1D watershed algorithm to estimate the pixel value where background becomes foreground.
+
+    Parameters
+    ----------
+    num_peaks : int, optional
+        a-priori number of peaks that the pixel value histogram of ``image`` has.
+    bins : int, optional
+        number of bins to use for the pixel value histogram of ``image``.
+    """
+    pix_hist, bns = np.histogram(image.ravel(), bins=bins)
+    # we assume by default num_peaks=2, that is, we have a bimodal pixel value histogram
+    coords = peak_local_max(pix_hist, num_peaks=num_peaks)
+    hig = pix_hist.argmax()
+    assert hig == coords[0], f'{hig=} | {coords=}'
+
+    # if the distribution is uni-modal
+    if pix_hist[coords[1]]/pix_hist[coords[0]] < 0.1:
+        threshold_i = int(coords[0])
+    else:
+        mask = np.zeros(pix_hist.shape, dtype=bool)
+        mask[tuple(coords.T)] = True
+        markers, _ = ndi.label(mask)
+
+        ws = watershed(-pix_hist, markers)
+        idx = np.where(ws[1:] > ws[:-1])[0]
+        # threshold is between the two first local maxima
+        coords = -np.sort(-coords)
+        threshold_i = idx[(idx >= coords[0]) & (idx <= coords[1])].min()
+    return bns[threshold_i:(threshold_i+1)].mean()
 
 def largest_divisor_lte(n, lim):
-    """Returns the largest divisor of :param:`n` that is less-than or equal to :param:`lim`."""
+    """Returns the largest divisor of ``n`` that is less-than or equal to ``lim``."""
+    if n < 0 or lim < 0:
+        raise ValueError(f'``n`` and ``lim`` have to be non-negative. They are: {n=} ; {lim=}')
+    
     large_divisors = []
     last_div = 1
     for i in range(1, int(math.sqrt(n) + 1)):
@@ -44,7 +81,7 @@ def largest_divisor_lte(n, lim):
 
 
 def split_video(path: str, W: int, H: int, target_shape: tuple, stepx: int, stepy: int, batch_size: int = 5, key=None):
-    """Given the path to a tiff file, generate sliding windows of shape :param:`target_shape` for each frame.
+    """Given the path to a tiff file, generate sliding windows of shape ``target_shape`` for each frame.
     
     This method is part of :func:`register`.
     
@@ -119,9 +156,15 @@ def reconstruct_video(moved_subimgs: np.ndarray,
     This method is part of :func:`utils.vxm_register`.
     
     .. warning::
-        At the moment flow is an empty array.
+        At the moment ``out_flow`` is an empty array.
     
-    TODO: reconstruct flow!!
+    **TODO: reconstruct flow!!**
+    
+    Returns
+    -------
+    out_video : np.ndarray
+        Reconstructed video
+    out_flow : np.ndarray
     """
     nb_frames = pos_arrays[-1, 0] + 1
     out_video = np.empty((nb_frames, H, W))
@@ -165,16 +208,22 @@ def vxm_register(video_path: str, model_weights_path: str, batch_size: int = 5, 
     """Given a TIFF video path, and a voxelmorph model, stabilize the video.
     
     .. warning:: 
-        At the moment flow is an empty array.
+        At the moment ``out_flow`` is an empty array.
     
-    :param video_path: full-path to the TIFF file.
-    :param model_weights_path: full-path to the `h5` file with the weights for the Voxelmorph model to be used.
-    :param batch_size: size of the batch.
-    :param strategy: either: 'default', 'GPU' (uses all GPUs), 'TPU', 'GPU:0', 'GPU:1', ...
+    :param str video_path: full-path to the TIFF file.
+    :param str model_weights_path: full-path to the `h5` file with the weights for the Voxelmorph model to be used.
+    :param int batch_size: size of the batch.
+    :param str strategy: either: 'default', 'GPU' (uses all GPUs), 'TPU', 'GPU:0', 'GPU:1', ...
         Defaults to 'default', which uses the CPU.
-    :param key: specify the frames of :param:`video_path` to analyze.
+    :param key: specify the frames of ``video_path`` to analyze.
         For example: ``key = range(50, 100, 2)``, ``key = [1, 2, 3]``, etc.
-        Defaults to all use all frames.
+        Defaults to use all frames.
+    
+    Returns
+    -------
+    out_video : np.ndarray
+        Registered video with the same size as the input ``video_path``.
+    out_flow : np.ndarray
     """
     # decrease logging level for tensorflow
     PREV_TF_LOGGING_LEVEL = logging.getLogger().level
@@ -307,7 +356,7 @@ def make_video(video_path: str,
                output_shape: tuple[int, int] = (-1, 2880),
                n_frames: int = -1,
                output_format: str = 'mov'):
-    """This function writes a video to file with all frames that the :param:`frame_generator` yields.
+    """This function writes a video to file with all frames that the ``frame_generator`` yields.
 
     .. note::
         Taken and modified from: `here <https://github.com/NeLy-EPFL/utils_video/blob/2b18493085576b6432b3eaecd0d6d62845ea3abc/utils_video/main.py#L10/>`_
@@ -316,6 +365,8 @@ def make_video(video_path: str,
     :param frame_generator: Generator yielding individual frames.
     :param fps: Frame rate in frames per second.
     :param output_format: format of the output video. Defauts to `"mov"`.
+    
+    :rtype: None
     """
     if float(fps).is_integer() and int(fps) != 1 and (int(fps) & (int(fps) - 1)) == 0:
         import warnings
@@ -371,8 +422,8 @@ def make_video(video_path: str,
     Path(tmp_video_path).unlink()
 
 
-def clip_video(video: np.ndarray, q1: int = 0.05, q2: int = 0.95) -> None:
-    """Clip :param:`video` in-place according to lower-quantile :param:`q1` and higher-quantile :param:`q2`."""
+def clip_video(video: np.ndarray, q1: float = 0.05, q2: float = 0.95) -> None:
+    """Clip ``video`` in-place according to lower-quantile ``q1`` and higher-quantile ``q2``."""
     low_bound = np.quantile(video, q1)
     hig_bound = np.quantile(video, q2)
 
@@ -383,35 +434,40 @@ def clip_video(video: np.ndarray, q1: int = 0.05, q2: int = 0.95) -> None:
 def segment_video(video: np.ndarray,
                   sigma: float = 1.0,
                   num_reps: int = 20,
-                  contrast: float = 512.0,
+                  contrast: float = 2.5,
                   apply_threshold: bool = True,
                   *args, **kwargs) -> np.ndarray:
-    """Apply a gaussian filter to :param:`video` and use Otsu thresholding.
+    """Apply a gaussian filter to ``video`` and use Otsu thresholding.
 
     :param sigma: sigma value to use for the gaussian filter.
     :param num_reps: how many times to repeat the gaussian filter for each frame.
     :param contrast: how much bring the values of the image closer to the mean. Note that higher
         values imply lower contrast, and vice-versa.
-        The following formula is applied to each pixel of each frame:
-        ```
+        The following formula is applied to each pixel of each frame::
+
             pixel <- (pixel / mean) ^ (1 / contrast) * mean
-        ```
+
         Where `mean` is the mean over the pixels of the frame.
         If `contrast=1`, then there is no change.
     :param apply_threshold: if `False`, perform the pre-processing steps, without applying Otsu
         thresholding. It will also not convert the frames to uint8.
-        Defaults to `True`.
+        Defaults to ``True``.
     :param *args: extra positional arguments for `cv2.GaussianBlur`.
     :param **kwargs: extra keyword arguments for `cv2.GaussianBlur`.
     """
     # applying a gaussian filter repeatedly is equivalent to this single
     # gaussian filter
     sigma = sigma * np.sqrt(num_reps)
+    video_low = video.mean() + 1e-6
 
     def loop(frame):
+        # avoid numerical errors
+        frame = frame + video_low
         # reduce contrast
         mean = frame.mean()
-        frame = np.power(frame / mean, 1/contrast) * mean
+        # frame = np.power(frame / mean, 1/contrast) * mean
+        log_mean = np.log(mean)
+        frame = np.exp((np.log(frame) - log_mean) / contrast + log_mean)
         # to uint8
         if apply_threshold:
             low = np.quantile(frame, q=0.01)
@@ -443,7 +499,10 @@ def blur_video(video: np.ndarray,
                sigmaX: float = 0.0,
                num_reps: int = 1,
                *args, **kwargs) -> np.ndarray:
-    """Apply a gaussian filter to :param:`video`."""
+    """Apply a gaussian filter to ``video`` in parallel.
+    
+    :returns: copy of ``video`` with a gaussian filter applied to all frames.
+    """
     def loop(frame):
         for _ in range(num_reps):
             frame = cv2.GaussianBlur(frame, ksize, sigmaX, *args, **kwargs)
@@ -461,7 +520,7 @@ def blur_video(video: np.ndarray,
 
 
 def plot_frame_values_3d(frame: np.ndarray, title: str = r"Frame values", pool: int = 15, size: int = 3, saveto=None) -> None:
-    """Generate 3d bar plot of :param:`frame`.
+    """Generate 3d bar plot of ``frame``.
 
     :param frame: input frame matrix
     :param title: title for the plot
@@ -499,15 +558,19 @@ def plot_frame_values_3d(frame: np.ndarray, title: str = r"Frame values", pool: 
 def get_strategy(strategy: str = 'default'):
     """Load and return the specified Tensorflow's strategy.
     
-    :param strategy: either:
+    :param strategy: either,
+    
         * 'default' (CPU, defaults to this)
-        * 'GPU'
+        * 'GPU' (Uses Tensorflow's MirroredStrategy)
         * 'TPU'
-        * 'GPU:<gpu-index>':
-            If :param:`strategy` is 'GPU', then use all GPUs.
-            If :param:`strategy` is 'GPU:0', then use GPU 0.
-            If :param:`strategy` is 'GPU:1', then use GPU 1.
-            etc.
+        * 'GPU:<gpu-index>',
+            * If ``strategy`` is 'GPU', then use all GPUs.
+            * If ``strategy`` is 'GPU:0', then use GPU 0.
+            * If ``strategy`` is 'GPU:1', then use GPU 1.
+            * etc.
+
+    :returns: Tensorflow strategy
+    :rtype: :func:`tf.distribute.Strategy`
     """
     # print device info
     logging.info(f"Num Physical GPUs Available: {len(tf.config.list_physical_devices('GPU'))}")

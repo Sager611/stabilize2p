@@ -47,7 +47,7 @@
 <li><p><strong>video</strong> – numpy array containing the video information</p></li>
 <li><p><strong>ref</strong> – reference frame/image to use as approx for round-truth.
 Either: previous, median or mean
-Default is <cite>‘previous’</cite></p></li>
+Default is ‘previous’</p></li>
 </ul>
 </dd>
 </dl>
@@ -63,7 +63,7 @@ Default is <cite>‘previous’</cite></p></li>
 <span class="sig-prename descclassname"><span class="pre">metrics.</span></span><span class="sig-name descname"><span class="pre">failure_score</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">numpy.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frame_shape</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">numpy.ndarray</span></span></span><a class="reference internal" href="_modules/metrics.html#failure_score"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#metrics.failure_score" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return percentage of frames considered ‘failed’ due to remoteness to the center.</p>
 <p>An important assumption this score makes is that the mean over the centers of mass of
-the input <a href="#id1"><span class="problematic" id="id2">:param:`video`</span></a> is suposed to represent a proper center were all axons are
+the input <code class="docutils literal notranslate"><span class="pre">video</span></code> is suposed to represent a proper center were all axons are
 visible.</p>
 </dd></dl>
 

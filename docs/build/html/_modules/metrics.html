@@ -53,12 +53,13 @@
 <span class="sd">    :param video: numpy array containing the video information</span>
 <span class="sd">    :param ref: reference frame/image to use as approx for round-truth.</span>
 <span class="sd">        Either: previous, median or mean</span>
-<span class="sd">        Default is `&#39;previous&#39;`</span>
+<span class="sd">        Default is &#39;previous&#39;</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">nb_frame_pixels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">video</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
     
     <span class="c1"># pre-processing</span>
-    <span class="n">video</span> <span class="o">=</span> <span class="n">video</span> <span class="o">-</span> <span class="n">video</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+    <span class="n">video</span> <span class="o">=</span> <span class="p">(</span><span class="n">video</span> <span class="o">-</span> <span class="n">video</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span>
+    <span class="c1"># video = (video - video.mean(axis=(1, 2))[:, np.newaxis, np.newaxis]) / (1e-6 + video.std(axis=(1, 2))[:, np.newaxis, np.newaxis])</span>
     
     <span class="k">if</span> <span class="n">ref</span> <span class="o">==</span> <span class="s1">&#39;previous&#39;</span><span class="p">:</span>
         <span class="n">I</span> <span class="o">=</span> <span class="n">video</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">nb_frame_pixels</span><span class="p">))</span>
@@ -96,7 +97,7 @@
     <span class="sd">&quot;&quot;&quot;Return percentage of frames considered &#39;failed&#39; due to remoteness to the center.</span>
 
 <span class="sd">    An important assumption this score makes is that the mean over the centers of mass of</span>
-<span class="sd">    the input :param:`video` is suposed to represent a proper center were all axons are</span>
+<span class="sd">    the input ``video`` is suposed to represent a proper center were all axons are</span>
 <span class="sd">    visible.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">frame_shape</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>

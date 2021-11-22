@@ -38,13 +38,18 @@
 <dl class="py function">
 <dt class="sig sig-object py" id="utils.blur_video">
 <span class="sig-prename descclassname"><span class="pre">utils.</span></span><span class="sig-name descname"><span class="pre">blur_video</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">numpy.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ksize</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">(15,</span> <span class="pre">15)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigmaX</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">float</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_reps</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">int</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">numpy.ndarray</span></span></span><a class="reference internal" href="_modules/utils.html#blur_video"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.blur_video" title="Permalink to this definition">¶</a></dt>
-<dd><p>Apply a gaussian filter to <a href="#id1"><span class="problematic" id="id2">:param:`video`</span></a>.</p>
+<dd><p>Apply a gaussian filter to <code class="docutils literal notranslate"><span class="pre">video</span></code> in parallel.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>copy of <code class="docutils literal notranslate"><span class="pre">video</span></code> with a gaussian filter applied to all frames.</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="utils.clip_video">
-<span class="sig-prename descclassname"><span class="pre">utils.</span></span><span class="sig-name descname"><span class="pre">clip_video</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">numpy.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">q1</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">int</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">0.05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">q2</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">int</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">0.95</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/utils.html#clip_video"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.clip_video" title="Permalink to this definition">¶</a></dt>
-<dd><p>Clip <a href="#id3"><span class="problematic" id="id4">:param:`video`</span></a> in-place according to lower-quantile <a href="#id5"><span class="problematic" id="id6">:param:`q1`</span></a> and higher-quantile <a href="#id7"><span class="problematic" id="id8">:param:`q2`</span></a>.</p>
+<span class="sig-prename descclassname"><span class="pre">utils.</span></span><span class="sig-name descname"><span class="pre">clip_video</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">numpy.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">q1</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">float</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">0.05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">q2</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">float</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">0.95</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/utils.html#clip_video"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.clip_video" title="Permalink to this definition">¶</a></dt>
+<dd><p>Clip <code class="docutils literal notranslate"><span class="pre">video</span></code> in-place according to lower-quantile <code class="docutils literal notranslate"><span class="pre">q1</span></code> and higher-quantile <code class="docutils literal notranslate"><span class="pre">q2</span></code>.</p>
 </dd></dl>
 
 <dl class="py function">
@@ -53,18 +58,29 @@
 <dd><p>Load and return the specified Tensorflow’s strategy.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>strategy</strong> – <p>either:
-* ‘default’ (CPU, defaults to this)
-* ‘GPU’
-* ‘TPU’
-* ‘GPU:&lt;gpu-index&gt;’:</p>
-<blockquote>
-<div><p>If <a href="#id9"><span class="problematic" id="id10">:param:`strategy`</span></a> is ‘GPU’, then use all GPUs.
-If <a href="#id11"><span class="problematic" id="id12">:param:`strategy`</span></a> is ‘GPU:0’, then use GPU 0.
-If <a href="#id13"><span class="problematic" id="id14">:param:`strategy`</span></a> is ‘GPU:1’, then use GPU 1.
-etc.</p>
-</div></blockquote>
+<dd class="field-odd"><p><strong>strategy</strong> – <p>either,</p>
+<ul class="simple">
+<li><p>’default’ (CPU, defaults to this)</p></li>
+<li><p>’GPU’</p></li>
+<li><p>’TPU’</p></li>
+<li><dl class="simple">
+<dt>’GPU:&lt;gpu-index&gt;’,</dt><dd><ul>
+<li><p>If <code class="docutils literal notranslate"><span class="pre">strategy</span></code> is ‘GPU’, then use all GPUs.</p></li>
+<li><p>If <code class="docutils literal notranslate"><span class="pre">strategy</span></code> is ‘GPU:0’, then use GPU 0.</p></li>
+<li><p>If <code class="docutils literal notranslate"><span class="pre">strategy</span></code> is ‘GPU:1’, then use GPU 1.</p></li>
+<li><p>etc.</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
 </p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Tensorflow strategy</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-func docutils literal notranslate"><span class="pre">tf.distribute.Strategy()</span></code></p>
 </dd>
 </dl>
 </dd></dl>
@@ -72,13 +88,13 @@ etc.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="utils.largest_divisor_lte">
 <span class="sig-prename descclassname"><span class="pre">utils.</span></span><span class="sig-name descname"><span class="pre">largest_divisor_lte</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lim</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/utils.html#largest_divisor_lte"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.largest_divisor_lte" title="Permalink to this definition">¶</a></dt>
-<dd><p>Returns the largest divisor of <a href="#id15"><span class="problematic" id="id16">:param:`n`</span></a> that is less-than or equal to <a href="#id17"><span class="problematic" id="id18">:param:`lim`</span></a>.</p>
+<dd><p>Returns the largest divisor of <code class="docutils literal notranslate"><span class="pre">n</span></code> that is less-than or equal to <code class="docutils literal notranslate"><span class="pre">lim</span></code>.</p>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="utils.make_video">
 <span class="sig-prename descclassname"><span class="pre">utils.</span></span><span class="sig-name descname"><span class="pre">make_video</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video_path</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frame_generator</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Iterable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fps</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">int</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">9</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cmap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">16</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ext</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">'mp4'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_shape</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">(-</span> <span class="pre">1,</span> <span class="pre">2880)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_frames</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">int</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">-</span> <span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_format</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">'mov'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/utils.html#make_video"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.make_video" title="Permalink to this definition">¶</a></dt>
-<dd><p>This function writes a video to file with all frames that the <a href="#id19"><span class="problematic" id="id20">:param:`frame_generator`</span></a> yields.</p>
+<dd><p>This function writes a video to file with all frames that the <code class="docutils literal notranslate"><span class="pre">frame_generator</span></code> yields.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Taken and modified from: <a class="reference external" href="https://github.com/NeLy-EPFL/utils_video/blob/2b18493085576b6432b3eaecd0d6d62845ea3abc/utils_video/main.py#L10/">here</a></p>
@@ -92,13 +108,16 @@ etc.</p>
 <li><p><strong>output_format</strong> – format of the output video. Defauts to <cite>“mov”</cite>.</p></li>
 </ul>
 </dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>None</p>
+</dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="utils.plot_frame_values_3d">
 <span class="sig-prename descclassname"><span class="pre">utils.</span></span><span class="sig-name descname"><span class="pre">plot_frame_values_3d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">frame</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">numpy.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">title</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">'Frame</span> <span class="pre">values'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pool</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">int</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">15</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">size</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">int</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">saveto</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="_modules/utils.html#plot_frame_values_3d"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.plot_frame_values_3d" title="Permalink to this definition">¶</a></dt>
-<dd><p>Generate 3d bar plot of <a href="#id21"><span class="problematic" id="id22">:param:`frame`</span></a>.</p>
+<dd><p>Generate 3d bar plot of <code class="docutils literal notranslate"><span class="pre">frame</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
@@ -119,9 +138,18 @@ etc.</p>
 <p>This method is part of <a class="reference internal" href="#utils.vxm_register" title="utils.vxm_register"><code class="xref py py-func docutils literal notranslate"><span class="pre">utils.vxm_register()</span></code></a>.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>At the moment flow is an empty array.</p>
+<p>At the moment <code class="docutils literal notranslate"><span class="pre">out_flow</span></code> is an empty array.</p>
 </div>
-<p>TODO: reconstruct flow!!</p>
+<p><strong>TODO: reconstruct flow!!</strong></p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p><ul class="simple">
+<li><p><strong>out_video</strong> (<em>np.ndarray</em>) – Reconstructed video</p></li>
+<li><p><strong>out_flow</strong> (<em>np.ndarray</em>)</p></li>
+</ul>
+</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
@@ -158,7 +186,7 @@ of <cite>original_shape</cite>.</p></li>
 <dl class="py function">
 <dt class="sig sig-object py" id="utils.segment_video">
 <span class="sig-prename descclassname"><span class="pre">utils.</span></span><span class="sig-name descname"><span class="pre">segment_video</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">numpy.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sigma</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">float</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_reps</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">int</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">contrast</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">float</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">512.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">apply_threshold</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">bool</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">numpy.ndarray</span></span></span><a class="reference internal" href="_modules/utils.html#segment_video"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.segment_video" title="Permalink to this definition">¶</a></dt>
-<dd><p>Apply a gaussian filter to <a href="#id24"><span class="problematic" id="id25">:param:`video`</span></a> and use Otsu thresholding.</p>
+<dd><p>Apply a gaussian filter to <code class="docutils literal notranslate"><span class="pre">video</span></code> and use Otsu thresholding.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
@@ -166,18 +194,16 @@ of <cite>original_shape</cite>.</p></li>
 <li><p><strong>num_reps</strong> – how many times to repeat the gaussian filter for each frame.</p></li>
 <li><p><strong>contrast</strong> – <p>how much bring the values of the image closer to the mean. Note that higher
 values imply lower contrast, and vice-versa.
-The following formula is applied to each pixel of each frame:
-<a href="#id26"><span class="problematic" id="id27">``</span></a><a href="#id28"><span class="problematic" id="id29">`</span></a></p>
-<blockquote>
-<div><p>pixel &lt;- (pixel / mean) ^ (1 / contrast) * mean</p>
-</div></blockquote>
-<p><a href="#id30"><span class="problematic" id="id31">``</span></a>`
-Where <cite>mean</cite> is the mean over the pixels of the frame.
+The following formula is applied to each pixel of each frame:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pixel</span> <span class="o">&lt;-</span> <span class="p">(</span><span class="n">pixel</span> <span class="o">/</span> <span class="n">mean</span><span class="p">)</span> <span class="o">^</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">contrast</span><span class="p">)</span> <span class="o">*</span> <span class="n">mean</span>
+</pre></div>
+</div>
+<p>Where <cite>mean</cite> is the mean over the pixels of the frame.
 If <cite>contrast=1</cite>, then there is no change.</p>
 </p></li>
 <li><p><strong>apply_threshold</strong> – if <cite>False</cite>, perform the pre-processing steps, without applying Otsu
 thresholding. It will also not convert the frames to uint8.
-Defaults to <cite>True</cite>.</p></li>
+Defaults to <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
 <li><p><strong>*args</strong> – <p>extra positional arguments for <cite>cv2.GaussianBlur</cite>.</p>
 </p></li>
 <li><p><strong>**kwargs</strong> – <p>extra keyword arguments for <cite>cv2.GaussianBlur</cite>.</p>
@@ -190,7 +216,7 @@ Defaults to <cite>True</cite>.</p></li>
 <dl class="py function">
 <dt class="sig sig-object py" id="utils.split_video">
 <span class="sig-prename descclassname"><span class="pre">utils.</span></span><span class="sig-name descname"><span class="pre">split_video</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">W</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">H</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_shape</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">tuple</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stepx</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stepy</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">int</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">key</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/utils.html#split_video"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#utils.split_video" title="Permalink to this definition">¶</a></dt>
-<dd><p>Given the path to a tiff file, generate sliding windows of shape <a href="#id36"><span class="problematic" id="id37">:param:`target_shape`</span></a> for each frame.</p>
+<dd><p>Given the path to a tiff file, generate sliding windows of shape <code class="docutils literal notranslate"><span class="pre">target_shape</span></code> for each frame.</p>
 <p>This method is part of <code class="xref py py-func docutils literal notranslate"><span class="pre">register()</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -207,20 +233,27 @@ Defaults to all use all frames.</p>
 <dd><p>Given a TIFF video path, and a voxelmorph model, stabilize the video.</p>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>At the moment flow is an empty array.</p>
+<p>At the moment <code class="docutils literal notranslate"><span class="pre">out_flow</span></code> is an empty array.</p>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>video_path</strong> – full-path to the TIFF file.</p></li>
-<li><p><strong>model_weights_path</strong> – full-path to the <cite>h5</cite> file with the weights for the Voxelmorph model to be used.</p></li>
-<li><p><strong>batch_size</strong> – size of the batch.</p></li>
-<li><p><strong>strategy</strong> – either: ‘default’, ‘GPU’ (uses all GPUs), ‘TPU’, ‘GPU:0’, ‘GPU:1’, …
+<li><p><strong>video_path</strong> (<em>str</em>) – full-path to the TIFF file.</p></li>
+<li><p><strong>model_weights_path</strong> (<em>str</em>) – full-path to the <cite>h5</cite> file with the weights for the Voxelmorph model to be used.</p></li>
+<li><p><strong>batch_size</strong> (<em>int</em>) – size of the batch.</p></li>
+<li><p><strong>strategy</strong> (<em>str</em>) – either: ‘default’, ‘GPU’ (uses all GPUs), ‘TPU’, ‘GPU:0’, ‘GPU:1’, …
 Defaults to ‘default’, which uses the CPU.</p></li>
-<li><p><strong>key</strong> – specify the frames of <a href="#id38"><span class="problematic" id="id39">:param:`video_path`</span></a> to analyze.
+<li><p><strong>key</strong> – specify the frames of <code class="docutils literal notranslate"><span class="pre">video_path</span></code> to analyze.
 For example: <code class="docutils literal notranslate"><span class="pre">key</span> <span class="pre">=</span> <span class="pre">range(50,</span> <span class="pre">100,</span> <span class="pre">2)</span></code>, <code class="docutils literal notranslate"><span class="pre">key</span> <span class="pre">=</span> <span class="pre">[1,</span> <span class="pre">2,</span> <span class="pre">3]</span></code>, etc.
-Defaults to all use all frames.</p></li>
+Defaults to use all frames.</p></li>
 </ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>out_video</strong> (<em>np.ndarray</em>) – Registered video with the same size as the input <code class="docutils literal notranslate"><span class="pre">video_path</span></code>.</p></li>
+<li><p><strong>out_flow</strong> (<em>np.ndarray</em>)</p></li>
+</ul>
+</p>
 </dd>
 </dl>
 </dd></dl>

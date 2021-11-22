@@ -20,12 +20,13 @@ def MSE_score(video: np.ndarray, ref: str = 'previous') -> float:
     :param video: numpy array containing the video information
     :param ref: reference frame/image to use as approx for round-truth.
         Either: previous, median or mean
-        Default is `'previous'`
+        Default is 'previous'
     """
     nb_frame_pixels = np.prod(video.shape[1:])
     
     # pre-processing
-    video = video - video.mean()
+    video = (video - video.mean())
+    # video = (video - video.mean(axis=(1, 2))[:, np.newaxis, np.newaxis]) / (1e-6 + video.std(axis=(1, 2))[:, np.newaxis, np.newaxis])
     
     if ref == 'previous':
         I = video[:-1].reshape((-1, nb_frame_pixels))
@@ -63,7 +64,7 @@ def failure_score(video: np.ndarray, frame_shape: Optional[tuple] = None) -> np.
     """Return percentage of frames considered 'failed' due to remoteness to the center.
 
     An important assumption this score makes is that the mean over the centers of mass of
-    the input :param:`video` is suposed to represent a proper center were all axons are
+    the input ``video`` is suposed to represent a proper center were all axons are
     visible.
     """
     if frame_shape is None:
