@@ -22,3 +22,7 @@ voxelmorph/**
 # we do not save the models (can be big)
 models
 models/**
+
+# the data folder should be linked by the user
+data
+data/**

@@ -27,12 +27,16 @@ from matplotlib import pyplot as plt
 from skimage.segmentation import watershed
 from skimage.feature import peak_local_max
 
+_LOGGER = logging.getLogger('stabilizer2p')
+
 
 def estimate_background_threshold(image: np.ndarray, num_peaks: int = 2, bins: int = 400) -> float:
     """Uses the 1D watershed algorithm to estimate the pixel value where background becomes foreground.
 
     Parameters
     ----------
+    image : array
+        2D image
     num_peaks : int, optional
         a-priori number of peaks that the pixel value histogram of ``image`` has.
     bins : int, optional
@@ -42,11 +46,12 @@ def estimate_background_threshold(image: np.ndarray, num_peaks: int = 2, bins: i
     # we assume by default num_peaks=2, that is, we have a bimodal pixel value histogram
     coords = peak_local_max(pix_hist, num_peaks=num_peaks)
     hig = pix_hist.argmax()
-    assert hig == coords[0], f'{hig=} | {coords=}'
+    # assert hig == coords[0], f'{hig=} | {coords=}'
 
-    # if the distribution is uni-modal
+    # if the distribution is uni-modal (in which case we assume that the 2nd predicted peak is small)
     if pix_hist[coords[1]]/pix_hist[coords[0]] < 0.1:
         threshold_i = int(coords[0])
+        _LOGGER.warning('pixel histogram is uni-modal, estimated threshold may not be accurate.')
     else:
         mask = np.zeros(pix_hist.shape, dtype=bool)
         mask[tuple(coords.T)] = True
@@ -55,9 +60,25 @@ def estimate_background_threshold(image: np.ndarray, num_peaks: int = 2, bins: i
         ws = watershed(-pix_hist, markers)
         idx = np.where(ws[1:] > ws[:-1])[0]
         # threshold is between the two first local maxima
-        coords = -np.sort(-coords)
+        coords = np.sort(coords.ravel())
         threshold_i = idx[(idx >= coords[0]) & (idx <= coords[1])].min()
     return bns[threshold_i:(threshold_i+1)].mean()
+
+
+def get_centers(video: np.ndarray) -> np.ndarray:
+    """Return each frame's center of mass."""
+    # use parallelism
+    with ThreadPoolExecutor() as executor:
+        futures = [
+            executor.submit(ndi.center_of_mass, frame)
+            for frame in video
+        ]
+        centers = [f.result() for f in futures]
+    centers = np.stack(centers)
+    # scipy returns in (y, x) format, so we have to swap them
+    centers = centers[:, [1, 0]]
+    return centers
+
 
 def largest_divisor_lte(n, lim):
     """Returns the largest divisor of ``n`` that is less-than or equal to ``lim``."""
@@ -84,8 +105,11 @@ def split_video(path: str, W: int, H: int, target_shape: tuple, stepx: int, step
     """Given the path to a tiff file, generate sliding windows of shape ``target_shape`` for each frame.
     
     This method is part of :func:`register`.
-    
-    :param key: specify the frames to analyze.
+
+    Parameters
+    ----------
+    key : range or list, optional
+        specify the frames to analyze.
         For example: ``key = range(50, 100, 2)``, ``key = [1, 2, 3]``, etc.
         Defaults to all use all frames.
     """
@@ -102,7 +126,7 @@ def split_video(path: str, W: int, H: int, target_shape: tuple, stepx: int, step
             if key is not None and fi not in key:
                 continue
 
-            logging.info(f'frame: {fi}')
+            _LOGGER.info(f'frame: {fi}')
             frame = page.asarray()
             for i, j in itertools.product(range(0, H-target_shape[0] +1, stepy), range(0, W-target_shape[1] +1, stepx)):
                 # col == x ; row == y
@@ -177,7 +201,7 @@ def reconstruct_video(moved_subimgs: np.ndarray,
 
     marginx = (subimg_C - stepx) // 2
     marginy = (subimg_R - stepy) // 2
-    logging.info(f'{marginx=} | {marginy=}')
+    _LOGGER.info(f'{marginx=} | {marginy=}')
 
     for (fi, i, j) in pos_arrays:
         si = (i) // stepy
@@ -226,12 +250,12 @@ def vxm_register(video_path: str, model_weights_path: str, batch_size: int = 5, 
     out_flow : np.ndarray
     """
     # decrease logging level for tensorflow
-    PREV_TF_LOGGING_LEVEL = logging.getLogger().level
+    PREV_TF_LOGGING_LEVEL = _LOGGER.level
     tf.get_logger().setLevel('FATAL')
     
     # increase logging level for our code
     PREV_LOGGING_LEVEL = logging.getLogger().level
-    logging.getLogger().setLevel(logging.INFO)
+    _LOGGER.setLevel(_LOGGER.info)
 
     # TPU or GPU or CPU
     strategy = get_strategy(strategy)
@@ -241,13 +265,13 @@ def vxm_register(video_path: str, model_weights_path: str, batch_size: int = 5, 
     with strategy.scope():
         vxm_model = vxm.networks.VxmDense.load(model_weights_path, input_model=None)
     t2 = time.perf_counter()
-    logging.info(f'Loaded model in {t2-t1:.2g}s')
+    _LOGGER.info(f'Loaded model in {t2-t1:.2g}s')
     
     # print model's layers and info
     vxm_model.summary(line_length = 180)
     
     target_shape = tuple(vxm_model.input[0].shape[1:])
-    logging.info(f'{target_shape=}')
+    _LOGGER.info(f'{target_shape=}')
 
     # get width/height info
     img = tiff.imread(video_path, key=[0])
@@ -269,7 +293,7 @@ def vxm_register(video_path: str, model_weights_path: str, batch_size: int = 5, 
     for batch, pos_array, norm_array in split_video(video_path, W, H, target_shape, stepx, stepy, batch_size=batch_size, key=key):
         moved, flow = vxm_model.predict([batch, batch])
 
-        logging.info(f'{moved.shape=} | {flow.shape=}')
+        _LOGGER.info(f'{moved.shape=} | {flow.shape=}')
 
         moved_subimgs += [moved[..., 0, 0]]
         flow_subimgs += [flow[..., 0, :]]
@@ -283,14 +307,14 @@ def vxm_register(video_path: str, model_weights_path: str, batch_size: int = 5, 
     norm_arrays = np.concatenate(norm_arrays)
 
     nb_frames = pos_arrays[-1, 0] + 1
-    logging.info(f'Rate: {(t2-t1)/nb_frames : .4g} s / frame')
+    _LOGGER.info(f'Rate: {(t2-t1)/nb_frames : .4g} s / frame')
 
     out_video, out_flow = reconstruct_video(moved_subimgs, flow_subimgs, pos_arrays, norm_arrays, W, H, stepx, stepy)
-    logging.info(f'{out_video.shape=} | {out_flow.shape=}')
+    _LOGGER.info(f'{out_video.shape=} | {out_flow.shape=}')
 
     # return the logging levels as they where before
     tf.get_logger().setLevel(PREV_TF_LOGGING_LEVEL)
-    logging.getLogger().setLevel(PREV_LOGGING_LEVEL)
+    _LOGGER.setLevel(PREV_LOGGING_LEVEL)
 
     return out_video, out_flow
 
@@ -573,19 +597,19 @@ def get_strategy(strategy: str = 'default'):
     :rtype: :func:`tf.distribute.Strategy`
     """
     # print device info
-    logging.info(f"Num Physical GPUs Available: {len(tf.config.list_physical_devices('GPU'))}")
-    logging.info(f"Num Logical  GPUs Available: {len(tf.config.list_logical_devices('GPU'))}")
-    logging.info(f"Num TPUs Available: {len(tf.config.list_logical_devices('TPU'))}")
+    _LOGGER.info(f"Num Physical GPUs Available: {len(tf.config.list_physical_devices('GPU'))}")
+    _LOGGER.info(f"Num Logical  GPUs Available: {len(tf.config.list_logical_devices('GPU'))}")
+    _LOGGER.info(f"Num TPUs Available: {len(tf.config.list_logical_devices('TPU'))}")
 
     if not tf.test.is_built_with_cuda():
-        logging.warning('Tensorflow is not built with GPU support!')
+        _LOGGER.warning('Tensorflow is not built with GPU support!')
 
     # try to allow growth in case other people are using the GPUs
     for gpu in tf.config.list_physical_devices('GPU'):
         try:
             tf.config.experimental.set_memory_growth(gpu, True)
         except:
-            logging.warning(f'GPU device "{gpu}" is already initialized.')
+            _LOGGER.warning(f'GPU device "{gpu}" is already initialized.')
 
     # choose strategy
     if strategy.lower() == 'tpu' and tf.config.list_physical_devices('TPU'):
@@ -595,16 +619,16 @@ def get_strategy(strategy: str = 'default'):
         tf.tpu.experimental.initialize_tpu_system(resolver)
 
         strategy = tf.distribute.TPUStrategy(resolver)
-        logging.info(r'using TPU strategy.')
+        _LOGGER.info(r'using TPU strategy.')
     if strategy.lower()[:3] == 'gpu' and tf.config.list_physical_devices('GPU'):
         if len(strategy) > 3:
             strategy = tf.distribute.MirroredStrategy([strategy])
         else:
             strategy = tf.distribute.MirroredStrategy()
-        logging.info(r'using GPU "MirroredStrategy" strategy.')
+        _LOGGER.info(r'using GPU "MirroredStrategy" strategy.')
     else:
         # use default strategy
         strategy = tf.distribute.get_strategy()
-        logging.info(r'using default strategy.')
+        _LOGGER.info(r'using default strategy.')
 
     return strategy

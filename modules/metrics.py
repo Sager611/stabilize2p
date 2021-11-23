@@ -7,18 +7,23 @@
 from typing import Optional
 
 import numpy as np
-from scipy import ndimage
 from concurrent.futures.thread import ThreadPoolExecutor
 from sklearn.metrics import mean_squared_error
+
+from .utils import estimate_background_threshold, get_centers
 
 
 def MSE_score(video: np.ndarray, ref: str = 'previous') -> float:
     """Return MSE score with respect to some reference image.
     
     This method is tested on 2D videos, but should work on 3D videos as well.
-    
-    :param video: numpy array containing the video information
-    :param ref: reference frame/image to use as approx for round-truth.
+
+    Parameters
+    ----------
+    video : array
+        Contains the video information
+    ref : string
+        Reference frame/image to use as approx for round-truth.
         Either: previous, median or mean
         Default is 'previous'
     """
@@ -45,22 +50,9 @@ def MSE_score(video: np.ndarray, ref: str = 'previous') -> float:
     return mean_squared_error(I, J, multioutput='uniform_average')
 
 
-def get_centers(video: np.ndarray) -> np.ndarray:
-    """Return each frame's center of mass."""
-    # use parallelism
-    with ThreadPoolExecutor() as executor:
-        futures = [
-            executor.submit(ndimage.center_of_mass, frame)
-            for frame in video
-        ]
-        centers = [f.result() for f in futures]
-    centers = np.stack(centers)
-    # scipy returns in (y, x) format, so we have to swap them
-    centers = centers[:, [1, 0]]
-    return centers
-
-
-def failure_score(video: np.ndarray, frame_shape: Optional[tuple] = None) -> np.ndarray:
+def failure_score(video: np.ndarray,
+                  frame_shape: Optional[tuple] = None,
+                  threshold: Optional[int] = None) -> np.ndarray:
     """Return percentage of frames considered 'failed' due to remoteness to the center.
 
     An important assumption this score makes is that the mean over the centers of mass of
@@ -69,12 +61,19 @@ def failure_score(video: np.ndarray, frame_shape: Optional[tuple] = None) -> np.
     """
     if frame_shape is None:
         frame_shape = (video.shape[1], video.shape[2])
+    if threshold is None:
+        threshold = 0.01 * min(*frame_shape)
+
+    # pre-processing
+    bkg = estimate_background_threshold(video[0])
+    # makes a copy of video, so we don't modify the argument
+    video = np.clip(video, bkg, None)
+    video = video - bkg
 
     centers = get_centers(video)
 
     # consider a frame wrong if the axis is > 10% off the mean
     m_center = centers.mean(axis=0)
-    threshold = 0.1 * min(*frame_shape)
     failures = np.sum((centers - m_center)**2, axis=1) > threshold**2
     return np.sum(failures) / centers.shape[0], failures
 
