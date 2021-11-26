@@ -1,0 +1,16 @@
+{
+    "training_pool": [
+        '../data/200901_G23xU1/Fly1/Fly1/001_coronal/2p/denoised_red.tif',
+        '../data/200901_G23xU1/Fly1/Fly1/002_coronal/2p/denoised_red.tif',
+        '../data/200901_G23xU1/Fly1/Fly1/003_coronal/2p/denoised_red.tif',
+        '../data/200901_G23xU1/Fly1/Fly1/004_coronal/2p/denoised_red.tif',
+        '../data/200901_G23xU1/Fly1/Fly1/005_coronal/2p/denoised_red.tif'
+    ],
+    "validation_pool": [
+        '../data/200901_G23xU1/Fly1/Fly1/001_coronal/2p/denoised_red.tif',
+        '../data/200901_G23xU1/Fly1/Fly1/002_coronal/2p/denoised_red.tif',
+        '../data/200901_G23xU1/Fly1/Fly1/003_coronal/2p/denoised_red.tif',
+        '../data/200901_G23xU1/Fly1/Fly1/004_coronal/2p/denoised_red.tif',
+        '../data/200901_G23xU1/Fly1/Fly1/005_coronal/2p/denoised_red.tif'
+    ]
+}

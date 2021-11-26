@@ -26,3 +26,7 @@ models/**
 # the data folder should be linked by the user
 data
 data/**
+
+# logs folder
+logs
+logs/**

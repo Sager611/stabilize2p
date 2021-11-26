@@ -5,8 +5,6 @@
 # 
 # Largely inspired by [Voxelmorph's notebook tutorial](https://colab.research.google.com/drive/1WiqyF7dCdnNBIANEY80Pxw_mVz4fyV-S?usp=sharing#scrollTo=Fw6dKBjBPXNp).
 
-# In[1]:
-
 
 import os
 
@@ -21,7 +19,7 @@ import argparse
 parser = argparse.ArgumentParser()
 
 # general parameters
-_models_path_default = os.path.abspath('../models')
+_models_path_default = os.path.abspath(str(__file__) + '/../../models')
 parser.add_argument('--model-dir', default=_models_path_default,
                     help=f'model output directory (default: {_models_path_default})')
 parser.add_argument('--out-dir', default='train-voxelmorph.out',
@@ -36,6 +34,9 @@ parser.add_argument('--steps-per-epoch', type=int, default=100,
                     help='steps per epoch (default: 100)')
 parser.add_argument('--batch-size', type=int, default=8,
                     help='training batch size, aka number of frames (default: 8)')
+parser.add_argument('--l2', type=float, default=1e-4,
+                    help='l2 regularization on the network weights (default: 1e-4)')
+parser.add_argument('--load-weights', help='optional weights file to initialize with')
 parser.add_argument('--gpu', default='', help='visible GPU ID numbers. Goes into "CUDA_VISIBLE_DEVICES" env var (default: use all GPUs)')
 
 # loss hyperparameters
@@ -52,6 +53,7 @@ if args.gpu:
 # suppress info and warn TF logs
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
+import json
 
 import cv2
 import tifffile as tiff
@@ -61,6 +63,7 @@ import voxelmorph as vxm
 import tensorflow as tf
 import neurite as ne
 from matplotlib import pyplot as plt
+from sklearn.utils import gen_batches
 
 # matplotlib Font size
 plt.style.use('default')
@@ -77,11 +80,8 @@ plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
 plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
 plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
+from modules.utils import make_video, get_strategy
 
-# In[2]:
-
-
-from modules.utils import make_video
 
 def frame_gen(video, scores=None, lt=0.9):
     std = video[0].std()
@@ -107,41 +107,7 @@ def frame_gen(video, scores=None, lt=0.9):
             yield img
 
 
-# In[3]:
-
-
-orig_examples = [
-    '../data/200901_G23xU1/Fly1/Fly1/001_coronal/2p/denoised_red.tif',
-    '../data/200901_G23xU1/Fly1/Fly1/002_coronal/2p/denoised_red.tif',
-    '../data/200901_G23xU1/Fly1/Fly1/003_coronal/2p/denoised_red.tif',
-    '../data/200901_G23xU1/Fly1/Fly1/004_coronal/2p/denoised_red.tif',
-    '../data/200901_G23xU1/Fly1/Fly1/005_coronal/2p/denoised_red.tif'
-]
-
-warped_examples = [
-    '../data/200901_G23xU1/Fly1/Fly1/001_coronal/2p/warped_red.tif',
-    '../data/200901_G23xU1/Fly1/Fly1/002_coronal/2p/warped_red.tif',
-    '../data/200901_G23xU1/Fly1/Fly1/003_coronal/2p/warped_red.tif',
-    '../data/200901_G23xU1/Fly1/Fly1/004_coronal/2p/warped_red.tif',
-    '../data/200901_G23xU1/Fly1/Fly1/005_coronal/2p/warped_red.tif'
-]
-
-pystackreg_examples = [
-    '../data/200901_G23xU1/Fly1/Fly1/001_coronal/2p/denoised_red.pystackreg-affine.tif',
-    '../data/200901_G23xU1/Fly1/Fly1/002_coronal/2p/denoised_red.pystackreg-affine.tif',
-    '../data/200901_G23xU1/Fly1/Fly1/003_coronal/2p/denoised_red.pystackreg-affine.tif',
-    '../data/200901_G23xU1/Fly1/Fly1/004_coronal/2p/denoised_red.pystackreg-affine.tif',
-    '../data/200901_G23xU1/Fly1/Fly1/005_coronal/2p/denoised_red.pystackreg-affine.tif'
-]
-
-
-# In[4]:
-
-
-from sklearn.utils import gen_batches
-
-
-def vxm_data_generator(x_data, batch_size=32, training=True):
+def vxm_data_generator(file_pool, batch_size=32, training=True):
     """
     Generator that takes in data of size [N, H, W], and yields data for
     our custom vxm model. Note that we need to provide numpy data for each
@@ -170,6 +136,7 @@ def vxm_data_generator(x_data, batch_size=32, training=True):
             moving_images = x_data[idx1, ..., np.newaxis]
             # idx2 = np.random.randint(0, x_data.shape[0], size=batch_size)
             fixed_images = x_data[idx2, ..., np.newaxis]
+            preprocessing(...)
             inputs = [moving_images, fixed_images]
 
             # prepare outputs (the 'true' moved image):
@@ -196,14 +163,17 @@ def vxm_data_generator(x_data, batch_size=32, training=True):
             yield (inputs, outputs)
 
 
-# In[5]:
-
-
 def preprocessing(x):
     # normalize
     low, hig = x.min(), x.max()
     x = (x - low) / (hig - low)
     return x, (low, hig)
+
+
+# read configuration file
+config = {}
+with open('train-voxelmorph.json', 'r') as _config_f:
+    config = json.load(_config_f)
 
 
 # ## Fully-Conv NN
@@ -212,23 +182,11 @@ np.random.seed(args.random_seed)
 
 os.makedirs(args.out_dir, exist_ok=True)
 
-# In[6]:
-
-
-from modules.utils import get_strategy
 strategy = get_strategy('GPU')
-
-
-# In[7]:
-
 
 # retrieve dataset shape
 PATH = orig_examples[0]
 in_shape = tiff.imread(PATH, key=0).shape
-
-
-# In[8]:
-
 
 # configure unet features 
 nb_features = [
@@ -241,14 +199,20 @@ with strategy.scope():
     vxm_model = vxm.networks.VxmDense(in_shape, nb_features, int_steps=0)
 
 
-# In[9]:
+# After loading our pre-trained model, we are going loop over all of its layers.
+# For each layer, we check if it supports regularization, and if it does, we add it
+if args.l2:
+    regularizer = tf.keras.regularizers.l2(args.l2)
+    for layer in vxm_model.layers:
+        for attr in ['kernel_regularizer']:
+            if hasattr(layer, attr):
+                setattr(layer, attr, regularizer)
 
+# load initial weights (if provided)
+if args.load_weights:
+    vxm_model.load_weights(args.load_weights)
 
 vxm_model.summary(line_length = 180)
-
-
-# In[10]:
-
 
 print('input shape: ', ', '.join([str(t.shape) for t in vxm_model.inputs]))
 print('output shape:', ', '.join([str(t.shape) for t in vxm_model.outputs]))
@@ -256,7 +220,7 @@ print('output shape:', ', '.join([str(t.shape) for t in vxm_model.outputs]))
 
 # ## Loss
 
-# In[11]:
+
 
 
 # voxelmorph has a variety of custom loss classes
@@ -278,7 +242,7 @@ loss_weights = [1, lambda_param]
 
 # ## Compile model
 
-# In[12]:
+
 
 
 with strategy.scope():
@@ -287,33 +251,16 @@ with strategy.scope():
 
 # ## Train
 
-# In[13]:
-
-
-x_train = tiff.imread(orig_examples[0], key=range(200))
-x_train, (x_train_low, x_train_hig) = preprocessing(x_train)
 
 # let's test it
-train_generator = vxm_data_generator(x_train, batch_size=args.batch_size)
+train_generator = vxm_data_generator(config['training_pool'], batch_size=args.batch_size)
 in_sample, out_sample = next(train_generator)
 
-# visualize
-images = [img[0, :, :, 0] for img in in_sample + out_sample] 
-titles = ['moving', 'fixed', 'moved ground-truth (fixed)', 'zeros']
-ne.plot.slices(images, titles=titles, cmaps=['viridis', 'viridis', 'viridis', 'gray'], do_colorbars=True);
-
-# validation
-x_val = tiff.imread(orig_examples[1], key=range(200))
-x_val = (x_val - x_train_low) / (x_train_hig - x_train_low)
-print(f'{x_val.min()=} | {x_val.max()=}')
-
 # let's get some data
-val_generator = vxm_data_generator(x_val, batch_size=args.batch_size)
+val_generator = vxm_data_generator(config['validation_pool'], batch_size=args.batch_size)
 
 
-# training,
-
-# In[ ]:
+# training
 
 save_filename = args.model_dir + '/vxm_drosophila_2d_{epoch:04d}.h5'
 
@@ -331,14 +278,13 @@ hist = vxm_model.fit(train_generator,
 vxm_model.save_weights(save_filename.format(epoch=args.epochs))
 
 
-# In[ ]:
-
+# plot history
 
 import matplotlib.pyplot as plt
 
 def plot_history(hist, loss_names=['loss', 'val_loss']):
     # Simple function to plot training history.
-    plt.figure(figsize=(8, 6))
+    plt.figure(figsize=(10, 6))
     for loss_name in loss_names:
         plt.plot(hist.epoch, hist.history[loss_name], '.-', label=loss_name)
     plt.ylabel(args.image_loss + ' loss')
@@ -349,18 +295,11 @@ def plot_history(hist, loss_names=['loss', 'val_loss']):
 
 plot_history(hist)
 
-
-# In[ ]:
-
-
 # no more need for training set
-del x_train, x_train_low, x_train_hig, train_generator
+del train_generator
 
 
 # ## Validation
-
-
-# In[ ]:
 
 
 # configure unet features 
@@ -374,28 +313,14 @@ with strategy.scope():
     vxm_model = vxm.networks.VxmDense(in_shape, nb_features, int_steps=0)
 
 
-# In[ ]:
-
-
-path = '../models/vxm_drosophila_2d.h5'
+path = save_filename.format(epoch=args.epochs)
 vxm_model.load_weights(path)
-print(f'saved model in: {path}')
+print(f'loaded model from: {path}')
 
 
-# validation video,
+# validation
 
-# In[ ]:
-
-
-x_val = tiff.imread(orig_examples[1], key=range(200))
-x_val, (x_val_low, x_val_hig) = preprocessing(x_val)
-
-# let's get some data
-val_generator = vxm_data_generator(x_val, batch_size=args.batch_size, training=False)
-
-
-# In[ ]:
-
+val_generator = vxm_data_generator(config['validation_pool'][0], batch_size=args.batch_size, training=False)
 
 val_pred = []
 for (val_input, _) in val_generator:
@@ -405,20 +330,17 @@ val_pred = [
     np.concatenate([a[1] for a in val_pred], axis=0)
 ]
 
+np.save(args.out_dir + '/validation-video', val_pred[0])
+np.save(args.out_dir + '/validation-flow', val_pred[1])
 
-# In[ ]:
 
-
-# visualize
-
-# In[ ]:
+# visualize flow
 
 i, j = val_pred[1].shape[1]//2, val_pred[1].shape[2]//2
 ne.plot.flow([val_pred[1][0, i:i+100, j:j+100, :].squeeze()], width=16, show=False);
 plt.savefig(args.out_dir + '/example-flow.svg')
 
-# In[ ]:
-
+# generate validation video
 
 make_video(args.out_dir + '/validation-video', frame_gen(val_pred[0]))
-print('generated output video')
+print('generated validation video')

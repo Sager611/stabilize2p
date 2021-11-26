@@ -9,6 +9,8 @@ else
 	CONDA_ACTIVATE=. $$(conda info --base)/etc/profile.d/conda.sh ; conda activate ; conda activate
 endif
 
+.PHONY: github_install remove-env install_environment.yml install-env reinstall-env update-env
+
 %.github_install: path=$(@:%.github_install=%)
 %.github_install: name=$(word 2,$(subst /, ,$(path)))
 %.github_install:
