@@ -54,6 +54,7 @@ if args.gpu:
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 import json
+from collections import defaultdict
 
 import cv2
 import tifffile as tiff
@@ -64,6 +65,8 @@ import tensorflow as tf
 import neurite as ne
 from matplotlib import pyplot as plt
 from sklearn.utils import gen_batches
+
+from modules.utils import make_video, get_strategy, vxm_data_generator
 
 # matplotlib Font size
 plt.style.use('default')
@@ -79,8 +82,6 @@ plt.rc('xtick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
 plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
 plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
 plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
-
-from modules.utils import make_video, get_strategy
 
 
 def frame_gen(video, scores=None, lt=0.9):
@@ -107,72 +108,9 @@ def frame_gen(video, scores=None, lt=0.9):
             yield img
 
 
-def vxm_data_generator(file_pool, batch_size=32, training=True):
-    """
-    Generator that takes in data of size [N, H, W], and yields data for
-    our custom vxm model. Note that we need to provide numpy data for each
-    input, and each output.
-
-    inputs:  moving [bs, H, W, 1], fixed image [bs, H, W, 1]
-    outputs: moved image [bs, H, W, 1], zero-gradient [bs, H, W, 2]
-    """
-
-    # preliminary sizing
-    vol_shape = x_data.shape[1:]  # extract data shape
-    ndims = len(vol_shape)
-    
-    # prepare a zero array the size of the deformation
-    # we'll explain this below
-    zero_phi = np.zeros([batch_size, *vol_shape, ndims])
-
-    # fixed image reference frame is the initial frame
-    idx2 = np.zeros(batch_size, dtype=int)
-
-    if training:
-        while True:
-            # prepare inputs:
-            # images need to be of the size [batch_size, H, W, 1]
-            idx1 = np.random.randint(0, x_data.shape[0], size=batch_size)
-            moving_images = x_data[idx1, ..., np.newaxis]
-            # idx2 = np.random.randint(0, x_data.shape[0], size=batch_size)
-            fixed_images = x_data[idx2, ..., np.newaxis]
-            preprocessing(...)
-            inputs = [moving_images, fixed_images]
-
-            # prepare outputs (the 'true' moved image):
-            # of course, we don't have this, but we know we want to compare 
-            # the resulting moved image with the fixed image. 
-            # we also wish to penalize the deformation field. 
-            outputs = [fixed_images, zero_phi]
-
-            yield (inputs, outputs)
-    else:
-        for idx in gen_batches(x_data.shape[0], batch_size):
-            # prepare inputs:
-            # images need to be of the size [batch_size, H, W, 1]
-            moving_images = x_data[idx, ..., np.newaxis]
-            fixed_images = x_data[idx2[:moving_images.shape[0]], ..., np.newaxis]
-            inputs = [moving_images, fixed_images]
-
-            # prepare outputs (the 'true' moved image):
-            # of course, we don't have this, but we know we want to compare 
-            # the resulting moved image with the fixed image. 
-            # we also wish to penalize the deformation field. 
-            outputs = [fixed_images, zero_phi]
-
-            yield (inputs, outputs)
-
-
-def preprocessing(x):
-    # normalize
-    low, hig = x.min(), x.max()
-    x = (x - low) / (hig - low)
-    return x, (low, hig)
-
-
 # read configuration file
-config = {}
-with open('train-voxelmorph.json', 'r') as _config_f:
+config = defaultdict()
+with open('train-voxelmorph.json') as _config_f:
     config = json.load(_config_f)
 
 
@@ -185,8 +123,7 @@ os.makedirs(args.out_dir, exist_ok=True)
 strategy = get_strategy('GPU')
 
 # retrieve dataset shape
-PATH = orig_examples[0]
-in_shape = tiff.imread(PATH, key=0).shape
+in_shape = tiff.imread(config['training_pool'][0], key=0).shape
 
 # configure unet features 
 nb_features = [
@@ -242,9 +179,6 @@ loss_weights = [1, lambda_param]
 
 # ## Compile model
 
-
-
-
 with strategy.scope():
     vxm_model.compile(optimizer='Adam', loss=losses, loss_weights=loss_weights)
 
@@ -252,25 +186,23 @@ with strategy.scope():
 # ## Train
 
 
-# let's test it
+# data generators
 train_generator = vxm_data_generator(config['training_pool'], batch_size=args.batch_size)
-in_sample, out_sample = next(train_generator)
-
-# let's get some data
 val_generator = vxm_data_generator(config['validation_pool'], batch_size=args.batch_size)
 
+nb_validation_frames = np.sum([len(tiff.TiffFile(file_path).pages) for file_path in config['validation_pool']])
+print(f'{nb_validation_frames=}')
 
 # training
-
 save_filename = args.model_dir + '/vxm_drosophila_2d_{epoch:04d}.h5'
 
-save_callback = tf.keras.callbacks.ModelCheckpoint(save_filename, save_freq=100)
+save_callback = tf.keras.callbacks.ModelCheckpoint(save_filename, save_freq=args.steps_per_epoch*100)
 
 print(f'Training for {args.epochs} epochs')
 hist = vxm_model.fit(train_generator,
                      epochs=args.epochs,
                      steps_per_epoch=args.steps_per_epoch,
-                     validation_data=val_generator, validation_steps=(x_val.shape[0] // args.batch_size),
+                     validation_data=val_generator, validation_steps=(nb_validation_frames // args.batch_size),
                      callbacks=[save_callback],
                      verbose=1);
 

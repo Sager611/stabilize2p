@@ -1,5 +1,5 @@
-2p-stabilizer
-=============
+stabilize-2p
+============
 
 Different approaches to stabilize 2-photon imaging video.
 
@@ -8,7 +8,9 @@ Requirements
 
 You need to install
 `Anaconda <https://docs.anaconda.com/anaconda/install/linux/>`__ or
-`Miniconda <https://docs.conda.io/en/latest/miniconda.html#linux-installers>`__.
+`Miniconda <https://docs.conda.io/en/latest/miniconda.html#linux-installers>`__. 
+
+`make <https://www.gnu.org/software/make//>`_ is also required.
 
 Make sure that your ``PATH`` env variable includes the ``bin/``
 directory of your conda installation. You can achieve this, in the case
@@ -43,9 +45,6 @@ with the dataset. For example:
     drwxrwxrwx 1 admin admin 256K Sep  7 17:37 200929_G23xU1/
     drwxrwxrwx 1 admin admin 256K Sep  7 22:52 200930_G23xU1/
     drwxrwxrwx 1 admin admin 256K Sep  8 02:19 201002_G23xU1/
-    -rwxrwxrwx 1 admin admin  442 Sep  4 11:23 copy.sh
-    -rwxrwxrwx 1 admin admin  173 Sep  9 18:18 du.txt
-    -rwxrwxrwx 1 admin admin  696 Sep  8 12:50 nohup.out
 
 Additional scripts
 ------------------
@@ -68,6 +67,6 @@ Scripts:
 .. code:: shell 
 
    eval "$(conda shell.bash hook)"
-   conda activate 2p-stabilizer``
+   conda activate stabilize2p
 
 

@@ -1,4 +1,4 @@
-CONDA_ENV_NAME:=2p-stabilizer
+CONDA_ENV_NAME:=stabilize2p
 
 ifeq (,$(shell which conda))
 	HAS_CONDA=False
@@ -14,11 +14,12 @@ endif
 %.github_install: path=$(@:%.github_install=%)
 %.github_install: name=$(word 2,$(subst /, ,$(path)))
 %.github_install:
-	$(CONDA_ACTIVATE) $(CONDA_ENV_NAME); pip install -e git+"https://github.com/$(path)#egg=$(name)"
+	# $(CONDA_ACTIVATE) $(CONDA_ENV_NAME); pip install -e git+"https://github.com/$(path)#egg=$(name)"
+	pip install -e git+"https://github.com/$(path)#egg=$(name)"
 github_install: NeLy-EPFL/ofco.github_install NeLy-EPFL/utils2p.github_install NeLy-EPFL/utils_video.github_install adalca/pystrum.github_install adalca/neurite.github_install voxelmorph/voxelmorph.github_install
 
 remove-env:
-	conda env remove -n 2p-stabilizer
+	conda env remove -n $(CONDA_ENV_NAME)
 
 install_environment.yml:
 	mkdir -p models

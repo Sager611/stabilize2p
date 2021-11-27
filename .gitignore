@@ -15,9 +15,10 @@ src
 notebooks/**
 !notebooks/*.ipynb
 
-# we do not save voxelmorph's github repo
-voxelmorph
-voxelmorph/**
+# we allow scripts and their configs, but not their outputs
+bin/*
+!bin/*.py 
+!bin/*.json
 
 # we do not save the models (can be big)
 models
@@ -25,8 +26,10 @@ models/**
 
 # the data folder should be linked by the user
 data
-data/**
 
 # logs folder
 logs
 logs/**
+
+# pip installed package info dir
+*.egg-info
