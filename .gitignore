@@ -33,3 +33,4 @@ logs/**
 
 # pip installed package info dir
 *.egg-info
+=*

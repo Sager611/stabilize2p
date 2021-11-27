@@ -259,7 +259,7 @@ def reconstruct_video(moved_subimgs: np.ndarray,
                       flow_subimgs: np.ndarray,
                       pos_arrays: np.ndarray,
                       norm_arrays: np.ndarray,
-                      W: int, H: int, stepx: int, stepy: int) -> tuple[np.ndarray, np.ndarray]:
+                      W: int, H: int, stepx: int, stepy: int) -> tuple:
     """Given the splitting of :func:`split_video`, reconstruct it.
     
     This method is part of :func:`utils.vxm_register`.
@@ -313,7 +313,7 @@ def reconstruct_video(moved_subimgs: np.ndarray,
     return out_video, out_flow
 
 
-def vxm_register(video_path: str, model_weights_path: str, batch_size: int = 5, strategy: str = 'default', key=None) -> tuple[np.ndarray, np.ndarray]:
+def vxm_register(video_path: str, model_weights_path: str, batch_size: int = 5, strategy: str = 'default', key=None) -> tuple:
     """Given a TIFF video path, and a voxelmorph model, stabilize the video.
     
     .. warning:: 
@@ -462,7 +462,7 @@ def make_video(video_path: str,
                fps: int = 9,
                cmap=cv2.COLORMAP_VIRIDIS,
                ext: str = 'mp4',
-               output_shape: tuple[int, int] = (-1, 2880),
+               output_shape: tuple = (-1, 2880),
                n_frames: int = -1,
                output_format: str = 'mov'):
     """This function writes a video to file with all frames that the ``frame_generator`` yields.
@@ -604,7 +604,7 @@ def segment_video(video: np.ndarray,
 
 
 def blur_video(video: np.ndarray,
-               ksize: tuple[int, int] = (15, 15),
+               ksize: tuple = (15, 15),
                sigmaX: float = 0.0,
                num_reps: int = 1,
                *args, **kwargs) -> np.ndarray:
