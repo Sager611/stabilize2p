@@ -12,12 +12,12 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('../../modules'))
+sys.path.insert(0, os.path.abspath('../../stabilize2p'))
 
 
 # -- Project information -----------------------------------------------------
 
-project = '2p-stabilizer'
+project = 'stabilize2p'
 copyright = '2021, Adrian Sager La Ganga'
 author = 'Adrian Sager La Ganga'
 

@@ -6,7 +6,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
 
-    <title>Welcome to 2p-stabilizer’s documentation! &#8212; 2p-stabilizer  documentation</title>
+    <title>Welcome to stabilize2p’s documentation! &#8212; stabilize2p  documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
     <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
@@ -32,8 +32,8 @@
 
           <div class="body" role="main">
             
-  <section id="welcome-to-2p-stabilizer-s-documentation">
-<h1>Welcome to 2p-stabilizer’s documentation!<a class="headerlink" href="#welcome-to-2p-stabilizer-s-documentation" title="Permalink to this headline">¶</a></h1>
+  <section id="welcome-to-stabilize2p-s-documentation">
+<h1>Welcome to stabilize2p’s documentation!<a class="headerlink" href="#welcome-to-stabilize2p-s-documentation" title="Permalink to this headline">¶</a></h1>
 <div class="toctree-wrapper compound">
 <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul>
@@ -45,32 +45,24 @@
 </ul>
 </div>
 </section>
-<section id="p-stabilizer">
-<h1>2p-stabilizer<a class="headerlink" href="#p-stabilizer" title="Permalink to this headline">¶</a></h1>
+<section id="stabilize2p">
+<h1>stabilize2p<a class="headerlink" href="#stabilize2p" title="Permalink to this headline">¶</a></h1>
 <p>Different approaches to stabilize 2-photon imaging video.</p>
 <section id="requirements">
 <h2>Requirements<a class="headerlink" href="#requirements" title="Permalink to this headline">¶</a></h2>
-<p>You need to install
-<a class="reference external" href="https://docs.anaconda.com/anaconda/install/linux/">Anaconda</a> or
-<a class="reference external" href="https://docs.conda.io/en/latest/miniconda.html#linux-installers">Miniconda</a>.</p>
-<p>Make sure that your <code class="docutils literal notranslate"><span class="pre">PATH</span></code> env variable includes the <code class="docutils literal notranslate"><span class="pre">bin/</span></code>
-directory of your conda installation. You can achieve this, in the case
-of Miniconda, by appending the following to <code class="docutils literal notranslate"><span class="pre">~/.bashrc</span></code>:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span> <span class="nv">PATH</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$PATH</span><span class="s2">:</span><span class="nv">$HOME</span><span class="s2">/miniconda3/bin&quot;</span>
-</pre></div>
-</div>
+<p><a class="reference external" href="https://www.gnu.org/software/make//">make</a> should be installed.</p>
 </section>
 <section id="installation">
 <h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h2>
 <p>Run:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">eval</span> <span class="s2">&quot;</span><span class="k">$(</span>conda shell.bash hook<span class="k">)</span><span class="s2">&quot;</span>
-conda activate
-make install-env
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>make install
+pip install -e .
 </pre></div>
 </div>
-<p>Please note that <code class="docutils literal notranslate"><span class="pre">data/</span></code> should be a link pointing to the directory
+<p>Please create in the project root folder a <code class="docutils literal notranslate"><span class="pre">data/</span></code> link pointing to the directory
 with the dataset. For example:</p>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ vdir -ph data/
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ ln -s /path/to/data <span class="s2">&quot;</span><span class="si">${</span><span class="nv">PWD</span><span class="si">}</span><span class="s2">/data&quot;</span>
+$ vdir -ph data/
 total <span class="m">2</span>.5M
 drwxrwxrwx <span class="m">1</span> admin admin 256K Sep  <span class="m">4</span> <span class="m">11</span>:23 200901_G23xU1/
 drwxrwxrwx <span class="m">1</span> admin admin 256K Sep  <span class="m">5</span> <span class="m">20</span>:52 200908_G23xU1/
@@ -79,9 +71,6 @@ drwxrwxrwx <span class="m">1</span> admin admin 256K Sep  <span class="m">6</spa
 drwxrwxrwx <span class="m">1</span> admin admin 256K Sep  <span class="m">7</span> <span class="m">17</span>:37 200929_G23xU1/
 drwxrwxrwx <span class="m">1</span> admin admin 256K Sep  <span class="m">7</span> <span class="m">22</span>:52 200930_G23xU1/
 drwxrwxrwx <span class="m">1</span> admin admin 256K Sep  <span class="m">8</span> <span class="m">02</span>:19 201002_G23xU1/
--rwxrwxrwx <span class="m">1</span> admin admin  <span class="m">442</span> Sep  <span class="m">4</span> <span class="m">11</span>:23 copy.sh
--rwxrwxrwx <span class="m">1</span> admin admin  <span class="m">173</span> Sep  <span class="m">9</span> <span class="m">18</span>:18 du.txt
--rwxrwxrwx <span class="m">1</span> admin admin  <span class="m">696</span> Sep  <span class="m">8</span> <span class="m">12</span>:50 nohup.out
 </pre></div>
 </div>
 </section>
@@ -89,21 +78,16 @@ drwxrwxrwx <span class="m">1</span> admin admin 256K Sep  <span class="m">8</spa
 <h2>Additional scripts<a class="headerlink" href="#additional-scripts" title="Permalink to this headline">¶</a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">bin/</span></code> folder contains scripts you may find useful to deal with
 the dataset.</p>
-<p>To run these scripts you need to <a class="reference external" href="#installation">install the conda environment
+<p>To run these scripts you need to <a class="reference external" href="#installation">install stabilize2p
 first</a>.</p>
 <p>Scripts:</p>
 <ul class="simple">
-<li><p>raw2tiff: transform raw 2-photon video to a TIFF file</p></li>
-<li><p>pystackreg: apply this method to a tiff file to stabilize the video</p></li>
+<li><p>raw2tiff: shell script to transform raw 2-photon video to a TIFF file</p></li>
+<li><p>pystackreg: shell script to apply pystackreg method to a tiff file to stabilize the video</p></li>
 <li><p>register.py: Voxelmorph’s
 <a class="reference external" href="https://github.com/voxelmorph/voxelmorph/blob/dev/scripts/tf/register.py">register.py</a>.
-Used to load a model and register an image. You need to activate the
-conda environment first:</p></li>
+Used to load a model and register an image.</p></li>
 </ul>
-<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span><span class="nb">eval</span> <span class="s2">&quot;</span><span class="k">$(</span>conda shell.bash hook<span class="k">)</span><span class="s2">&quot;</span>
-conda activate 2p-stabilizer<span class="sb">``</span>
-</pre></div>
-</div>
 </section>
 </section>
 <section id="indices-and-tables">
@@ -122,7 +106,7 @@ conda activate 2p-stabilizer<span class="sb">``</span>
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
-<h1 class="logo"><a href="#">2p-stabilizer</a></h1>
+<h1 class="logo"><a href="#">stabilize2p</a></h1>
 
 
 
@@ -171,7 +155,7 @@ conda activate 2p-stabilizer<span class="sb">``</span>
       &copy;2021, Adrian Sager La Ganga.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.2.0</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.3.1</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |

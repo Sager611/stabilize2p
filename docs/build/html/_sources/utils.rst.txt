@@ -1,7 +1,7 @@
 utils module
 ============
 
-.. automodule:: utils
+.. automodule:: stabilize2p.utils
    :members:
    :undoc-members:
    :show-inheritance:

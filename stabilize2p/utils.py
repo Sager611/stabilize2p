@@ -189,7 +189,7 @@ def largest_divisor_lte(n, lim):
 def split_video(path: str, W: int, H: int, target_shape: tuple, stepx: int, stepy: int, batch_size: int = 5, key=None):
     """Given the path to a tiff file, generate sliding windows of shape ``target_shape`` for each frame.
     
-    This method is part of :func:`register`.
+    This method is part of :func:`vxm_register`.
 
     Parameters
     ----------
@@ -262,7 +262,7 @@ def reconstruct_video(moved_subimgs: np.ndarray,
                       W: int, H: int, stepx: int, stepy: int) -> tuple:
     """Given the splitting of :func:`split_video`, reconstruct it.
     
-    This method is part of :func:`utils.vxm_register`.
+    This method is part of :func:`vxm_register`.
     
     .. warning::
         At the moment ``out_flow`` is an empty array.

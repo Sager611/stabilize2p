@@ -1,0 +1,329 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>stabilize2p.metrics &#8212; stabilize2p  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css" />
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for stabilize2p.metrics</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Evaluation metrics module.</span>
+
+<span class="sd">.. moduleauthor:: Adrian Sager &lt;adrian.sagerlaganga@epfl.ch&gt;</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
+<span class="kn">from</span> <span class="nn">concurrent.futures.thread</span> <span class="kn">import</span> <span class="n">ThreadPoolExecutor</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
+<span class="kn">import</span> <span class="nn">voxelmorph</span> <span class="k">as</span> <span class="nn">vxm</span>
+<span class="kn">from</span> <span class="nn">sklearn.metrics</span> <span class="kn">import</span> <span class="n">mean_squared_error</span>
+<span class="kn">from</span> <span class="nn">scipy.spatial.distance</span> <span class="kn">import</span> <span class="n">cdist</span>
+<span class="kn">from</span> <span class="nn">scipy.optimize</span> <span class="kn">import</span> <span class="n">linear_sum_assignment</span>
+
+<span class="kn">from</span> <span class="nn">.utils</span> <span class="kn">import</span> <span class="n">estimate_background_threshold</span><span class="p">,</span> <span class="n">get_centers</span>
+
+
+<div class="viewcode-block" id="EMD"><a class="viewcode-back" href="../../metrics.html#stabilize2p.metrics.EMD">[docs]</a><span class="k">def</span> <span class="nf">EMD</span><span class="p">(</span><span class="n">video</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span> <span class="n">metric</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;euclidean&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Earth Moving Distance score.</span>
+<span class="sd">    </span>
+<span class="sd">    This metric is not standard and it&#39;s not recomended its use, but only</span>
+<span class="sd">    for its novelty.</span>
+
+<span class="sd">    This is a generalization for the 1D Wasserstein distance.</span>
+
+<span class="sd">    ``n_samples`` samples are taken for each frame, considering the frame</span>
+<span class="sd">    an n-dimensional distribution. Then, for each two consecutive frames,</span>
+<span class="sd">    their sampled points are run through :func:`scipy.optimize.linear_sum_assignment`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    video : array</span>
+<span class="sd">        n-dimensional video</span>
+<span class="sd">    n_samples : array</span>
+<span class="sd">        number of samples to take for each frame.</span>
+<span class="sd">        Defaults to 100.</span>
+<span class="sd">    metric : string</span>
+<span class="sd">        what metric to use as the distance between samples.</span>
+<span class="sd">        Defaults to &#39;euclidean&#39;.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">scores</span> <span class="o">=</span> <span class="p">[]</span>
+    
+    <span class="k">def</span> <span class="nf">loop</span><span class="p">(</span><span class="n">I</span><span class="p">,</span> <span class="n">J</span><span class="p">):</span>
+        <span class="c1"># make frames probability distributions</span>
+        <span class="n">I</span> <span class="o">=</span> <span class="n">I</span> <span class="o">-</span> <span class="n">I</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
+        <span class="n">J</span> <span class="o">=</span> <span class="n">J</span> <span class="o">-</span> <span class="n">J</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
+
+        <span class="n">I</span> <span class="o">=</span> <span class="n">I</span> <span class="o">/</span> <span class="n">I</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="n">J</span> <span class="o">=</span> <span class="n">J</span> <span class="o">/</span> <span class="n">J</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+
+        <span class="c1"># sample points</span>
+        <span class="n">I_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">I</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="n">I</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span> <span class="n">size</span><span class="o">=</span><span class="n">n_samples</span><span class="p">)</span>
+        <span class="n">J_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">J</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="n">J</span><span class="o">.</span><span class="n">flatten</span><span class="p">(),</span> <span class="n">size</span><span class="o">=</span><span class="n">n_samples</span><span class="p">)</span>
+
+        <span class="n">I_pts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">c_</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">unravel_index</span><span class="p">(</span><span class="n">I_idx</span><span class="p">,</span> <span class="n">I</span><span class="o">.</span><span class="n">shape</span><span class="p">)][:,</span> <span class="p">::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">J_pts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">c_</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">unravel_index</span><span class="p">(</span><span class="n">J_idx</span><span class="p">,</span> <span class="n">J</span><span class="o">.</span><span class="n">shape</span><span class="p">)][:,</span> <span class="p">::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="c1"># calculate EMD</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">cdist</span><span class="p">(</span><span class="n">I_pts</span><span class="p">,</span> <span class="n">J_pts</span><span class="p">,</span> <span class="n">metric</span><span class="o">=</span><span class="n">metric</span><span class="p">)</span>
+        <span class="n">assignment</span> <span class="o">=</span> <span class="n">linear_sum_assignment</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">d</span><span class="p">[</span><span class="n">assignment</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="n">n_samples</span>
+
+    <span class="k">with</span> <span class="n">ThreadPoolExecutor</span><span class="p">()</span> <span class="k">as</span> <span class="n">executor</span><span class="p">:</span>
+        <span class="n">futures</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">executor</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="n">loop</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="n">J</span><span class="p">)</span>
+            <span class="c1"># for each two consecutive frames</span>
+            <span class="k">for</span> <span class="n">I</span><span class="p">,</span> <span class="n">J</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">video</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">video</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+        <span class="p">]</span>
+        <span class="n">scores</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">result</span><span class="p">()</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">futures</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">scores</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="NCC"><a class="viewcode-back" href="../../metrics.html#stabilize2p.metrics.NCC">[docs]</a><span class="k">def</span> <span class="nf">NCC</span><span class="p">(</span><span class="n">video</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Normalized Cross-Correlation score.</span>
+
+<span class="sd">    This method works on 2D and 3D video inputs.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">vxm_ncc</span> <span class="o">=</span> <span class="n">vxm</span><span class="o">.</span><span class="n">losses</span><span class="o">.</span><span class="n">NCC</span><span class="p">()</span>
+    <span class="n">video</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">convert_to_tensor</span><span class="p">(</span><span class="n">video</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
+    <span class="c1"># vxm NCC&#39;s assumes Ii, Ji are sized [batch_size, *vol_shape, nb_feats]</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">vxm_ncc</span><span class="o">.</span><span class="n">loss</span><span class="p">(</span><span class="n">video</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">video</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span></div>
+
+
+<div class="viewcode-block" id="MSE"><a class="viewcode-back" href="../../metrics.html#stabilize2p.metrics.MSE">[docs]</a><span class="k">def</span> <span class="nf">MSE</span><span class="p">(</span><span class="n">video</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ref</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;previous&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Return MSE score with respect to some reference image.</span>
+<span class="sd">    </span>
+<span class="sd">    This method is tested on 2D videos, but should work on 3D videos as well.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    video : array</span>
+<span class="sd">        Contains the video information</span>
+<span class="sd">    ref : string</span>
+<span class="sd">        Reference frame/image to use as approx for round-truth.</span>
+<span class="sd">        Either: previous, median or mean</span>
+<span class="sd">        Default is &#39;previous&#39;</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">nb_frame_pixels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">video</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+    
+    <span class="c1"># pre-processing</span>
+    <span class="n">video</span> <span class="o">=</span> <span class="p">(</span><span class="n">video</span> <span class="o">-</span> <span class="n">video</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span>
+    <span class="c1"># video = (video - video.mean(axis=(1, 2))[:, np.newaxis, np.newaxis]) / (1e-6 + video.std(axis=(1, 2))[:, np.newaxis, np.newaxis])</span>
+    
+    <span class="k">if</span> <span class="n">ref</span> <span class="o">==</span> <span class="s1">&#39;previous&#39;</span><span class="p">:</span>
+        <span class="n">I</span> <span class="o">=</span> <span class="n">video</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">nb_frame_pixels</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="n">ref</span> <span class="o">==</span> <span class="s1">&#39;median&#39;</span><span class="p">:</span>
+        <span class="n">I</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">video</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span> <span class="p">(</span><span class="n">video</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="n">ref</span> <span class="o">==</span> <span class="s1">&#39;mean&#39;</span><span class="p">:</span>
+        <span class="n">I</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">video</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span> <span class="p">(</span><span class="n">video</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Reference &quot;</span><span class="si">{</span><span class="n">ref</span><span class="si">}</span><span class="s1">&quot; is not recognized. Recognized references: previous, median, mean&#39;</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="n">ref</span> <span class="o">==</span> <span class="s1">&#39;previous&#39;</span><span class="p">:</span>
+        <span class="n">J</span> <span class="o">=</span> <span class="n">video</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">nb_frame_pixels</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">J</span> <span class="o">=</span> <span class="n">video</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">nb_frame_pixels</span><span class="p">))</span>
+    
+    <span class="k">return</span> <span class="n">mean_squared_error</span><span class="p">(</span><span class="n">I</span><span class="p">,</span> <span class="n">J</span><span class="p">,</span> <span class="n">multioutput</span><span class="o">=</span><span class="s1">&#39;uniform_average&#39;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="failure_score"><a class="viewcode-back" href="../../metrics.html#stabilize2p.metrics.failure_score">[docs]</a><span class="k">def</span> <span class="nf">failure_score</span><span class="p">(</span><span class="n">video</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+                  <span class="n">frame_shape</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">tuple</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                  <span class="n">threshold</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Return percentage of frames considered &#39;failed&#39; due to remoteness to the center.</span>
+
+<span class="sd">    An important assumption this score makes is that the mean over the centers of mass of</span>
+<span class="sd">    the input ``video`` is suposed to represent a proper center were all axons are</span>
+<span class="sd">    visible.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">frame_shape</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">frame_shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">video</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">video</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+    <span class="k">if</span> <span class="n">threshold</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">threshold</span> <span class="o">=</span> <span class="mf">0.01</span> <span class="o">*</span> <span class="nb">min</span><span class="p">(</span><span class="o">*</span><span class="n">frame_shape</span><span class="p">)</span>
+
+    <span class="c1"># pre-processing</span>
+    <span class="n">bkg</span> <span class="o">=</span> <span class="n">estimate_background_threshold</span><span class="p">(</span><span class="n">video</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="c1"># makes a copy of video, so we don&#39;t modify the argument</span>
+    <span class="n">video</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">video</span><span class="p">,</span> <span class="n">bkg</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="n">video</span> <span class="o">=</span> <span class="n">video</span> <span class="o">-</span> <span class="n">bkg</span>
+
+    <span class="n">centers</span> <span class="o">=</span> <span class="n">get_centers</span><span class="p">(</span><span class="n">video</span><span class="p">)</span>
+
+    <span class="c1"># consider a frame wrong if the axis is &gt; 10% off the mean</span>
+    <span class="n">m_center</span> <span class="o">=</span> <span class="n">centers</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">failures</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">centers</span> <span class="o">-</span> <span class="n">m_center</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">threshold</span><span class="o">**</span><span class="mi">2</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">failures</span><span class="p">)</span> <span class="o">/</span> <span class="n">centers</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">failures</span></div>
+
+
+<span class="c1"># def get_correlation_scores(video: np.ndarray) -&gt; np.ndarray:</span>
+<span class="c1">#     &quot;&quot;&quot;For each frame, return a score from 0 to 1 on how correlated it is to the mean frame.&quot;&quot;&quot;</span>
+<span class="c1">#     mean_frame = video.mean(axis=0)</span>
+<span class="c1">#     # auto-correlation.</span>
+<span class="c1">#     # value achieved if all frames were the same</span>
+<span class="c1">#     ref_corr = (mean_frame * mean_frame).sum()</span>
+
+<span class="c1">#     def loop(i):</span>
+<span class="c1">#         # cross-correlation</span>
+<span class="c1">#         corr = (video[i] * mean_frame).sum()</span>
+<span class="c1">#         # avoid numerical errors</span>
+<span class="c1">#         large = max(ref_corr, corr)</span>
+<span class="c1">#         local_ref_corr = ref_corr / large</span>
+<span class="c1">#         corr /= large</span>
+<span class="c1">#         # if corr == ref_corr we will get 1.0</span>
+<span class="c1">#         # if corr and ref_corr are very different, we will get 0.0</span>
+<span class="c1">#         score = 1.0 - np.abs(local_ref_corr - corr) / (local_ref_corr + corr)</span>
+<span class="c1">#         assert abs(score) &lt;= 1.0, f&#39;{score=} | {local_ref_corr=} | {corr=}&#39;</span>
+<span class="c1">#         return score</span>
+    
+<span class="c1">#     with ThreadPoolExecutor() as executor:</span>
+<span class="c1">#         futures = [</span>
+<span class="c1">#             executor.submit(loop, i)</span>
+<span class="c1">#             for i in range(len(video))</span>
+<span class="c1">#         ]</span>
+<span class="c1">#         scores = [f.result() for f in futures]</span>
+<span class="c1">#     scores = np.array(scores)</span>
+<span class="c1">#     return scores</span>
+
+
+<span class="c1"># def get_correlation_scores_prev(video: np.ndarray) -&gt; np.ndarray:</span>
+<span class="c1">#     &quot;&quot;&quot;For each frame, return a score from 0 to 1 on how correlated it is to the next frame.&quot;&quot;&quot;</span>
+
+<span class="c1">#     def loop(i):</span>
+<span class="c1">#         # auto-correlation.</span>
+<span class="c1">#         # value achieved if all frames were the same</span>
+<span class="c1">#         ref_corr = (video[i] * video[i]).sum()</span>
+<span class="c1">#         # cross-correlation</span>
+<span class="c1">#         corr = (video[i] * video[i+1]).sum()</span>
+<span class="c1">#         # avoid numerical errors</span>
+<span class="c1">#         large = max(ref_corr, corr)</span>
+<span class="c1">#         local_ref_corr = ref_corr / large</span>
+<span class="c1">#         corr /= large</span>
+<span class="c1">#         # if corr == ref_corr we will get 1.0</span>
+<span class="c1">#         # if corr and ref_corr are very different, we will get 0.0</span>
+<span class="c1">#         score = 1.0 - np.abs(local_ref_corr - corr) / (local_ref_corr + corr)</span>
+<span class="c1">#         assert abs(score) &lt;= 1.0, f&#39;{score=} | {local_ref_corr=} | {corr=}&#39;</span>
+<span class="c1">#         return score</span>
+    
+<span class="c1">#     with ThreadPoolExecutor() as executor:</span>
+<span class="c1">#         futures = [</span>
+<span class="c1">#             executor.submit(loop, i)</span>
+<span class="c1">#             for i in range(len(video)-1)</span>
+<span class="c1">#         ]</span>
+<span class="c1">#         scores = [f.result() for f in futures]</span>
+<span class="c1">#     scores = np.array(scores)</span>
+<span class="c1">#     return scores</span>
+
+
+<div class="viewcode-block" id="cont_dice_scores"><a class="viewcode-back" href="../../metrics.html#stabilize2p.metrics.cont_dice_scores">[docs]</a><span class="k">def</span> <span class="nf">cont_dice_scores</span><span class="p">(</span><span class="n">video</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="n">normals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">video</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+    <span class="n">N</span> <span class="o">=</span> <span class="n">normals</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">loop</span><span class="p">(</span><span class="n">i</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">video</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="n">video</span><span class="p">[</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="n">N</span>
+
+    <span class="c1"># use parallelism</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">with</span> <span class="n">ThreadPoolExecutor</span><span class="p">()</span> <span class="k">as</span> <span class="n">executor</span><span class="p">:</span>
+        <span class="n">futures</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">executor</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="n">loop</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">video</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">result</span><span class="p">()</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">futures</span><span class="p">]</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">res</span></div>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">stabilize2p</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../modules.html">modules</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2021, Adrian Sager La Ganga.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.3.1</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
