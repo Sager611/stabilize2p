@@ -1,0 +1,62 @@
+#!/bin/sh
+
+FROM=$1
+DEST1=$2
+DEST2=$3
+
+{ [ -z "$FROM" ] || [ ! -d "$FROM" ]; } && {
+    echo 'provide a folder with raw data' >&2
+    exit 1
+}
+
+# FROM is a folder. Remove possible trailing '/'
+FROM="$(echo "$FROM" | sed 's/\/$//')"
+
+[ -z "$DEST1" ] && DEST1="$FROM.1.tif"
+[ -z "$DEST2" ] && DEST2="$FROM.2.tif"
+
+# to full-path
+[ -d "$PWD/$FROM" ] && FROM="$PWD/$FROM"
+DEST1="$PWD/$DEST1"
+DEST2="$PWD/$DEST2"
+
+# raw and metadata
+RAW="$(echo "$FROM/"Image*.raw)"
+META="$(echo "$FROM/"*.xml)"
+
+[ ! -f "$RAW" ] && {
+    echo 'could not find .raw in ' "$FROM" >&2
+    exit 1
+}
+
+[ ! -f "$META" ] && {
+    echo 'could not find .xml metadata file in ' "$FROM" >&2
+    exit 1
+}
+
+eval "$(conda shell.bash hook)"
+conda activate 2p-stabilizer
+
+python -c "
+import utils2p
+import time
+
+print('raw:  ', '$RAW')
+print('meta: ', '$META')
+print('dest1:', '$DEST1')
+print('dest2:', '$DEST2')
+
+t1 = time.perf_counter()
+
+metadata = utils2p.Metadata('$META')
+stack1, stack2 = utils2p.load_raw('$RAW', metadata)
+
+t2 = time.perf_counter()
+print(f'Loaded raw file in {t2-t1:.2f}s')
+
+utils2p.save_img('$DEST1.tif', stack1)
+utils2p.save_img('$DEST2.tif', stack2)
+
+t3 = time.perf_counter()
+print(f'Saved tif files in {t3-t2:.2f}s')
+"

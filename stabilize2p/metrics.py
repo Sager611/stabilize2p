@@ -5,15 +5,87 @@
 """
 
 from typing import Optional
+from concurrent.futures.thread import ThreadPoolExecutor
 
 import numpy as np
-from concurrent.futures.thread import ThreadPoolExecutor
+import tensorflow as tf
+import voxelmorph as vxm
 from sklearn.metrics import mean_squared_error
+from scipy.spatial.distance import cdist
+from scipy.optimize import linear_sum_assignment
 
 from .utils import estimate_background_threshold, get_centers
 
 
-def MSE_score(video: np.ndarray, ref: str = 'previous') -> float:
+def EMD(video: np.ndarray, n_samples: int = 100, metric: str = 'euclidean') -> float:
+    """Earth Moving Distance score.
+    
+    This metric is not standard and it's not recomended its use, but only
+    for its novelty.
+
+    This is a generalization for the 1D Wasserstein distance.
+
+    ``n_samples`` samples are taken for each frame, considering the frame
+    an n-dimensional distribution. Then, for each two consecutive frames,
+    their sampled points are run through :func:`scipy.optimize.linear_sum_assignment`.
+
+    Parameters
+    ----------
+    video : array
+        n-dimensional video
+    n_samples : array
+        number of samples to take for each frame.
+        Defaults to 100.
+    metric : string
+        what metric to use as the distance between samples.
+        Defaults to 'euclidean'.
+    """
+    scores = []
+    
+    def loop(I, J):
+        # make frames probability distributions
+        I = I - I.min()
+        J = J - J.min()
+
+        I = I / I.sum()
+        J = J / J.sum()
+
+        # sample points
+        I_idx = np.random.choice(I.flatten().size, p=I.flatten(), size=n_samples)
+        J_idx = np.random.choice(J.flatten().size, p=J.flatten(), size=n_samples)
+
+        I_pts = np.c_[np.unravel_index(I_idx, I.shape)][:, ::-1]
+        J_pts = np.c_[np.unravel_index(J_idx, J.shape)][:, ::-1]
+
+        # calculate EMD
+        d = cdist(I_pts, J_pts, metric=metric)
+        assignment = linear_sum_assignment(d)
+        return d[assignment].sum() / n_samples
+
+    with ThreadPoolExecutor() as executor:
+        futures = [
+            executor.submit(loop, I, J)
+            # for each two consecutive frames
+            for I, J in zip(video[:-1], video[1:])
+        ]
+        scores = [f.result() for f in futures]
+
+    return np.max(scores)
+
+
+def NCC(video: np.ndarray) -> float:
+    """Normalized Cross-Correlation score.
+
+    This method works on 2D and 3D video inputs.
+    """
+    vxm_ncc = vxm.losses.NCC()
+    video = tf.convert_to_tensor(video[..., np.newaxis], dtype=np.float32)
+
+    # vxm NCC's assumes Ii, Ji are sized [batch_size, *vol_shape, nb_feats]
+    return np.mean(vxm_ncc.loss(video[1:], video[:-1]))
+
+
+def MSE(video: np.ndarray, ref: str = 'previous') -> float:
     """Return MSE score with respect to some reference image.
     
     This method is tested on 2D videos, but should work on 3D videos as well.
@@ -78,63 +150,63 @@ def failure_score(video: np.ndarray,
     return np.sum(failures) / centers.shape[0], failures
 
 
-def get_correlation_scores(video: np.ndarray) -> np.ndarray:
-    """For each frame, return a score from 0 to 1 on how correlated it is to the mean frame."""
-    mean_frame = video.mean(axis=0)
-    # auto-correlation.
-    # value achieved if all frames were the same
-    ref_corr = (mean_frame * mean_frame).sum()
+# def get_correlation_scores(video: np.ndarray) -> np.ndarray:
+#     """For each frame, return a score from 0 to 1 on how correlated it is to the mean frame."""
+#     mean_frame = video.mean(axis=0)
+#     # auto-correlation.
+#     # value achieved if all frames were the same
+#     ref_corr = (mean_frame * mean_frame).sum()
 
-    def loop(i):
-        # cross-correlation
-        corr = (video[i] * mean_frame).sum()
-        # avoid numerical errors
-        large = max(ref_corr, corr)
-        local_ref_corr = ref_corr / large
-        corr /= large
-        # if corr == ref_corr we will get 1.0
-        # if corr and ref_corr are very different, we will get 0.0
-        score = 1.0 - np.abs(local_ref_corr - corr) / (local_ref_corr + corr)
-        assert abs(score) <= 1.0, f'{score=} | {local_ref_corr=} | {corr=}'
-        return score
+#     def loop(i):
+#         # cross-correlation
+#         corr = (video[i] * mean_frame).sum()
+#         # avoid numerical errors
+#         large = max(ref_corr, corr)
+#         local_ref_corr = ref_corr / large
+#         corr /= large
+#         # if corr == ref_corr we will get 1.0
+#         # if corr and ref_corr are very different, we will get 0.0
+#         score = 1.0 - np.abs(local_ref_corr - corr) / (local_ref_corr + corr)
+#         assert abs(score) <= 1.0, f'{score=} | {local_ref_corr=} | {corr=}'
+#         return score
     
-    with ThreadPoolExecutor() as executor:
-        futures = [
-            executor.submit(loop, i)
-            for i in range(len(video))
-        ]
-        scores = [f.result() for f in futures]
-    scores = np.array(scores)
-    return scores
+#     with ThreadPoolExecutor() as executor:
+#         futures = [
+#             executor.submit(loop, i)
+#             for i in range(len(video))
+#         ]
+#         scores = [f.result() for f in futures]
+#     scores = np.array(scores)
+#     return scores
 
 
-def get_correlation_scores_prev(video: np.ndarray) -> np.ndarray:
-    """For each frame, return a score from 0 to 1 on how correlated it is to the next frame."""
+# def get_correlation_scores_prev(video: np.ndarray) -> np.ndarray:
+#     """For each frame, return a score from 0 to 1 on how correlated it is to the next frame."""
 
-    def loop(i):
-        # auto-correlation.
-        # value achieved if all frames were the same
-        ref_corr = (video[i] * video[i]).sum()
-        # cross-correlation
-        corr = (video[i] * video[i+1]).sum()
-        # avoid numerical errors
-        large = max(ref_corr, corr)
-        local_ref_corr = ref_corr / large
-        corr /= large
-        # if corr == ref_corr we will get 1.0
-        # if corr and ref_corr are very different, we will get 0.0
-        score = 1.0 - np.abs(local_ref_corr - corr) / (local_ref_corr + corr)
-        assert abs(score) <= 1.0, f'{score=} | {local_ref_corr=} | {corr=}'
-        return score
+#     def loop(i):
+#         # auto-correlation.
+#         # value achieved if all frames were the same
+#         ref_corr = (video[i] * video[i]).sum()
+#         # cross-correlation
+#         corr = (video[i] * video[i+1]).sum()
+#         # avoid numerical errors
+#         large = max(ref_corr, corr)
+#         local_ref_corr = ref_corr / large
+#         corr /= large
+#         # if corr == ref_corr we will get 1.0
+#         # if corr and ref_corr are very different, we will get 0.0
+#         score = 1.0 - np.abs(local_ref_corr - corr) / (local_ref_corr + corr)
+#         assert abs(score) <= 1.0, f'{score=} | {local_ref_corr=} | {corr=}'
+#         return score
     
-    with ThreadPoolExecutor() as executor:
-        futures = [
-            executor.submit(loop, i)
-            for i in range(len(video)-1)
-        ]
-        scores = [f.result() for f in futures]
-    scores = np.array(scores)
-    return scores
+#     with ThreadPoolExecutor() as executor:
+#         futures = [
+#             executor.submit(loop, i)
+#             for i in range(len(video)-1)
+#         ]
+#         scores = [f.result() for f in futures]
+#     scores = np.array(scores)
+#     return scores
 
 
 def cont_dice_scores(video: np.ndarray) -> float:
