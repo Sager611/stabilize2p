@@ -36,3 +36,6 @@ logs/**
 # pip installed package info dir
 *.egg-info
 =*
+
+# conda environment is no longer needed
+environment.yml

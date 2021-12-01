@@ -9,7 +9,6 @@ from concurrent.futures.thread import ThreadPoolExecutor
 
 import numpy as np
 from scipy import ndimage as ndi
-# from skimage.measure import block_reduce
 
 from . import utils
 
