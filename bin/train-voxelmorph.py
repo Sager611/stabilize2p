@@ -1,17 +1,14 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# # Voxelmorph training Notebook
-# 
-# Largely inspired by [Voxelmorph's notebook tutorial](https://colab.research.google.com/drive/1WiqyF7dCdnNBIANEY80Pxw_mVz4fyV-S?usp=sharing#scrollTo=Fw6dKBjBPXNp).
-
+"""
+Voxelmorph training script.
+ 
+Largely inspired by `Voxelmorph's notebook tutorial <https://colab.research.google.com/drive/1WiqyF7dCdnNBIANEY80Pxw_mVz4fyV-S?usp=sharing#scrollTo=Fw6dKBjBPXNp>`_,
+and `Hypermorph training script <https://github.com/voxelmorph/voxelmorph/blob/dev/scripts/tf/train_hypermorph.py>`_.
+"""
 
 import os
-
-# so we can use the modules/ folder
-import sys
-sys.path.insert(0, '../')
-
 import argparse
 
 ########################## line arguments ##########################
@@ -20,6 +17,8 @@ parser = argparse.ArgumentParser()
 
 # general parameters
 _models_path_default = os.path.abspath(str(__file__) + '/../../models')
+parser.add_argument('--config', default='train-voxelmorph.json',
+                    help='json file to use for extra configuration, like specifying which files to use for training (default: "train-voxelmorph.json")')
 parser.add_argument('--model-dir', default=_models_path_default,
                     help=f'model output directory (default: {_models_path_default})')
 parser.add_argument('--out-dir', default='train-voxelmorph.out',
@@ -37,7 +36,15 @@ parser.add_argument('--batch-size', type=int, default=8,
 parser.add_argument('--l2', type=float, default=1e-4,
                     help='l2 regularization on the network weights (default: 1e-4)')
 parser.add_argument('--load-weights', help='optional weights file to initialize with')
+parser.add_argument('--initial-epoch', type=int, default=0,
+                    help='initial epoch number (default: 0)')
 parser.add_argument('--gpu', default='', help='visible GPU ID numbers. Goes into "CUDA_VISIBLE_DEVICES" env var (default: use all GPUs)')
+
+# network architecture parameters
+parser.add_argument('--enc', type=int, nargs='+',
+                    help='list of unet encoder filters (default: 16 32 32 128 128)')
+parser.add_argument('--dec', type=int, nargs='+',
+                    help='list of unet decorder filters (default: 128 128 32 32 32 16 16)')
 
 # loss hyperparameters
 parser.add_argument('--image-loss', default='mse',
@@ -47,6 +54,9 @@ args = parser.parse_args()
 
 ####################################################################
 
+# validate arguments
+if args.initial_epoch >= args.epochs:
+    raise ValueError('--initial-epoch must be strictly lower than --epochs')
 
 if args.gpu:
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
@@ -66,7 +76,7 @@ import neurite as ne
 from matplotlib import pyplot as plt
 from sklearn.utils import gen_batches
 
-from modules.utils import make_video, get_strategy, vxm_data_generator
+from stabilize2p.utils import make_video, get_strategy, vxm_data_generator
 
 # matplotlib Font size
 plt.style.use('default')
@@ -110,7 +120,7 @@ def frame_gen(video, scores=None, lt=0.9):
 
 # read configuration file
 config = defaultdict()
-with open('train-voxelmorph.json') as _config_f:
+with open(args.config, 'r') as _config_f:
     config = json.load(_config_f)
 
 
@@ -125,15 +135,13 @@ strategy = get_strategy('GPU')
 # retrieve dataset shape
 in_shape = tiff.imread(config['training_pool'][0], key=0).shape
 
-# configure unet features 
-nb_features = [
-    [32, 32, 32, 64],         # encoder features
-    [64, 32, 32, 16, 16, 16]  # decoder features
-]
+# unet architecture
+enc_nf = args.enc if args.enc else [16, 32, 32, 128, 128]
+dec_nf = args.dec if args.dec else [128, 128, 32, 32, 32, 16, 16]
 
 # build model using VxmDense
 with strategy.scope():
-    vxm_model = vxm.networks.VxmDense(in_shape, nb_features, int_steps=0)
+    vxm_model = vxm.networks.VxmDense(in_shape, [enc_nf, dec_nf], int_steps=0)
 
 
 # After loading our pre-trained model, we are going loop over all of its layers.
@@ -156,9 +164,6 @@ print('output shape:', ', '.join([str(t.shape) for t in vxm_model.outputs]))
 
 
 # ## Loss
-
-
-
 
 # voxelmorph has a variety of custom loss classes
 losses = [None, vxm.losses.Grad('l2').loss]
@@ -200,12 +205,12 @@ save_callback = tf.keras.callbacks.ModelCheckpoint(save_filename, save_freq=args
 
 print(f'Training for {args.epochs} epochs')
 hist = vxm_model.fit(train_generator,
+                     initial_epoch=args.initial_epoch,
                      epochs=args.epochs,
                      steps_per_epoch=args.steps_per_epoch,
                      validation_data=val_generator, validation_steps=(nb_validation_frames // args.batch_size),
                      callbacks=[save_callback],
                      verbose=1);
-
 
 vxm_model.save_weights(save_filename.format(epoch=args.epochs))
 
@@ -213,19 +218,32 @@ vxm_model.save_weights(save_filename.format(epoch=args.epochs))
 # plot history
 
 import matplotlib.pyplot as plt
+from itertools import cycle
 
 def plot_history(hist, loss_names=['loss', 'val_loss']):
     # Simple function to plot training history.
     plt.figure(figsize=(10, 6))
+
+    color = plt.cm.tab10(np.linspace(0, 1, 10))
+    c = cycle(color)
+
+    # training losses
     for loss_name in loss_names:
-        plt.plot(hist.epoch, hist.history[loss_name], '.-', label=loss_name)
-    plt.ylabel(args.image_loss + ' loss')
+        if loss_name in hist.history:
+            plt.plot(hist.epoch, hist.history[loss_name], '.-', c=next(c), label=loss_name)
+
+    # user-provided reference losses
+    for label, value in config["reference_losses"].items():
+        plt.axhline(value, label=label, ls='--', c=next(c))
+
+    plt.ylabel(args.image_loss + '+flow loss')
     plt.xlabel('epoch')
     plt.title('Training loss')
     plt.legend()
     plt.savefig(args.out_dir + '/history.svg')
 
 plot_history(hist)
+print('plotted history')
 
 # no more need for training set
 del train_generator
@@ -233,16 +251,9 @@ del train_generator
 
 # ## Validation
 
-
-# configure unet features 
-nb_features = [
-    [32, 32, 32, 64],         # encoder features
-    [64, 32, 32, 16, 16, 16]  # decoder features
-]
-
 # build model using VxmDense
 with strategy.scope():
-    vxm_model = vxm.networks.VxmDense(in_shape, nb_features, int_steps=0)
+    vxm_model = vxm.networks.VxmDense(in_shape, [enc_nf, dec_nf], int_steps=0)
 
 
 path = save_filename.format(epoch=args.epochs)
