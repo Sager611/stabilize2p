@@ -6,3 +6,4 @@ modules
 
    metrics
    utils
+   register

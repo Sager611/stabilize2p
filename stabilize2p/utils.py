@@ -335,13 +335,20 @@ def vxm_register(video_path: str, model_weights_path: str, batch_size: int = 5, 
     
     .. warning:: 
         At the moment ``out_flow`` is an empty array.
-    
-    :param str video_path: full-path to the TIFF file.
-    :param str model_weights_path: full-path to the `h5` file with the weights for the Voxelmorph model to be used.
-    :param int batch_size: size of the batch.
-    :param str strategy: either: 'default', 'GPU' (uses all GPUs), 'TPU', 'GPU:0', 'GPU:1', ...
+
+    Parameters
+    ----------
+    video_path : string
+        full-path to the TIFF file.
+    model_weights_path : string
+        full-path to the `h5` file with the weights for the Voxelmorph model to be used.
+    batch_size : int
+        size of the batch.
+    strategy : string
+        either: 'default', 'GPU' (uses all GPUs), 'TPU', 'GPU:0', 'GPU:1', ...
         Defaults to 'default', which uses the CPU.
-    :param key: specify the frames of ``video_path`` to analyze.
+    key : sequence
+        specify the frames of ``video_path`` to analyze.
         For example: ``key = range(50, 100, 2)``, ``key = [1, 2, 3]``, etc.
         Defaults to use all frames.
     

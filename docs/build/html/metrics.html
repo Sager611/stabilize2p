@@ -38,9 +38,9 @@
 <p>Evaluation metrics module.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="stabilize2p.metrics.EMD">
-<span class="sig-prename descclassname"><span class="pre">stabilize2p.metrics.</span></span><span class="sig-name descname"><span class="pre">EMD</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">numpy.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_samples</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feat_frac</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.1</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="_modules/stabilize2p/metrics.html#EMD"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.metrics.EMD" title="Permalink to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">stabilize2p.metrics.</span></span><span class="sig-name descname"><span class="pre">EMD</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">numpy.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_samples</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metric</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'euclidean'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feat_frac</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.2</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="_modules/stabilize2p/metrics.html#EMD"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.metrics.EMD" title="Permalink to this definition">¶</a></dt>
 <dd><p>Earth Moving Distance score (loosely inspired).</p>
-<p>This metric is not standard and it’s not recomended its use, but only
+<p>This metric is not standard and it’s not recomended to use practically, but only
 for its novelty.</p>
 <p>This is a generalization for the 1D Wasserstein distance.</p>
 <p><code class="docutils literal notranslate"><span class="pre">n_samples</span></code> samples are taken for each frame, considering the frame
@@ -52,6 +52,8 @@ their sampled points are run through <code class="xref py py-func docutils liter
 <li><p><strong>video</strong> (<em>array</em>) – n-dimensional video</p></li>
 <li><p><strong>n_samples</strong> (<em>array</em>) – number of samples to take for each frame.
 Defaults to 100.</p></li>
+<li><p><strong>metric</strong> (<em>string</em>) – distance metric to use for optimal transport.
+Defaults to ‘euclidean’</p></li>
 <li><p><strong>feat_frac</strong> (<em>float</em>) – <p>the amount, fraction, of the image that corresponds to the features.
 In a formula:</p>
 <p><code class="docutils literal notranslate"><span class="pre">feat_frac</span> <span class="pre">=</span> <span class="pre">(#</span> <span class="pre">feature</span> <span class="pre">pixels)</span> <span class="pre">/</span> <span class="pre">(#</span> <span class="pre">total</span> <span class="pre">pixels)</span></code></p>
@@ -124,6 +126,7 @@ visible.</p>
 <li class="toctree-l1 current"><a class="reference internal" href="modules.html">modules</a><ul class="current">
 <li class="toctree-l2 current"><a class="current reference internal" href="#">metrics module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="utils.html">utils module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="register.html">register module</a></li>
 </ul>
 </li>
 </ul>

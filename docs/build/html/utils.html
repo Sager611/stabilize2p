@@ -15,6 +15,7 @@
     <script src="_static/doctools.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="register module" href="register.html" />
     <link rel="prev" title="metrics module" href="metrics.html" />
    
   <link rel="stylesheet" href="_static/custom.css" type="text/css" />
@@ -123,14 +124,17 @@
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>video_path</strong> – Name/path to the output file.</p></li>
-<li><p><strong>frame_generator</strong> – Generator yielding individual frames.</p></li>
-<li><p><strong>fps</strong> – Frame rate in frames per second.</p></li>
+<li><p><strong>video_path</strong> (<em>string</em>) – name/path to the output file.</p></li>
+<li><p><strong>frame_generator</strong> – generator yielding individual frames.</p></li>
+<li><p><strong>fps</strong> – frame rate in frames per second.</p></li>
 <li><p><strong>output_format</strong> – format of the output video. Defauts to <cite>“mov”</cite>.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p>None</p>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>None</p>
 </dd>
 </dl>
 </dd></dl>
@@ -151,11 +155,6 @@
 </dd>
 </dl>
 </dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="stabilize2p.utils.preprocessing">
-<span class="sig-prename descclassname"><span class="pre">stabilize2p.utils.</span></span><span class="sig-name descname"><span class="pre">preprocessing</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/stabilize2p/utils.html#preprocessing"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.utils.preprocessing" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="stabilize2p.utils.reconstruct_video">
@@ -255,7 +254,7 @@ Defaults to all use all frames.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="stabilize2p.utils.vxm_data_generator">
-<span class="sig-prename descclassname"><span class="pre">stabilize2p.utils.</span></span><span class="sig-name descname"><span class="pre">vxm_data_generator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_pool</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">16</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">training</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/stabilize2p/utils.html#vxm_data_generator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.utils.vxm_data_generator" title="Permalink to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">stabilize2p.utils.</span></span><span class="sig-name descname"><span class="pre">vxm_data_generator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_pool</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">16</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">training</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">affine_tranform</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/stabilize2p/utils.html#vxm_data_generator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.utils.vxm_data_generator" title="Permalink to this definition">¶</a></dt>
 <dd><p>Generator that takes in data of size [N, H, W], and yields data for
 our custom vxm model. Note that we need to provide numpy data for each
 input, and each output.</p>
@@ -265,15 +264,22 @@ outputs: moved image [bs, H, W, 1], zero-gradient [bs, H, W, 2]</p>
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>file_pool</strong> (<em>list</em><em> or </em><em>string</em>) – pool of filepaths (can be relative) in TIFF format to gather data from.
-In training mode, for each batch files are chosen uniformly at random and
+In training mode, for each batch, files are chosen uniformly at random and
 then the batch is generated by taking a random subset of frames of size <code class="docutils literal notranslate"><span class="pre">batch_size</span></code></p></li>
 <li><p><strong>batch_size</strong> (<em>int</em>) – </p></li>
 <li><p><strong>training</strong> (<em>bool</em>) – whether to activate training mode. Deactivating training mode means
 batches are generated in order, from the first file to the last</p></li>
+<li><p><strong>affine_tranform</strong> (<em>bool</em>) – whether to perform an affine transform as a pre-step for every batch using
+<code class="xref py py-class docutils literal notranslate"><span class="pre">pystackreg.StackReg</span></code></p></li>
 </ul>
 </dd>
 </dl>
 </dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="stabilize2p.utils.vxm_preprocessing">
+<span class="sig-prename descclassname"><span class="pre">stabilize2p.utils.</span></span><span class="sig-name descname"><span class="pre">vxm_preprocessing</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">affine_tranform</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/stabilize2p/utils.html#vxm_preprocessing"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.utils.vxm_preprocessing" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="stabilize2p.utils.vxm_register">
@@ -286,12 +292,12 @@ batches are generated in order, from the first file to the last</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>video_path</strong> (<em>str</em>) – full-path to the TIFF file.</p></li>
-<li><p><strong>model_weights_path</strong> (<em>str</em>) – full-path to the <cite>h5</cite> file with the weights for the Voxelmorph model to be used.</p></li>
+<li><p><strong>video_path</strong> (<em>string</em>) – full-path to the TIFF file.</p></li>
+<li><p><strong>model_weights_path</strong> (<em>string</em>) – full-path to the <cite>h5</cite> file with the weights for the Voxelmorph model to be used.</p></li>
 <li><p><strong>batch_size</strong> (<em>int</em>) – size of the batch.</p></li>
-<li><p><strong>strategy</strong> (<em>str</em>) – either: ‘default’, ‘GPU’ (uses all GPUs), ‘TPU’, ‘GPU:0’, ‘GPU:1’, …
+<li><p><strong>strategy</strong> (<em>string</em>) – either: ‘default’, ‘GPU’ (uses all GPUs), ‘TPU’, ‘GPU:0’, ‘GPU:1’, …
 Defaults to ‘default’, which uses the CPU.</p></li>
-<li><p><strong>key</strong> – specify the frames of <code class="docutils literal notranslate"><span class="pre">video_path</span></code> to analyze.
+<li><p><strong>key</strong> (<em>sequence</em>) – specify the frames of <code class="docutils literal notranslate"><span class="pre">video_path</span></code> to analyze.
 For example: <code class="docutils literal notranslate"><span class="pre">key</span> <span class="pre">=</span> <span class="pre">range(50,</span> <span class="pre">100,</span> <span class="pre">2)</span></code>, <code class="docutils literal notranslate"><span class="pre">key</span> <span class="pre">=</span> <span class="pre">[1,</span> <span class="pre">2,</span> <span class="pre">3]</span></code>, etc.
 Defaults to use all frames.</p></li>
 </ul>
@@ -330,6 +336,7 @@ Defaults to use all frames.</p></li>
 <li class="toctree-l1 current"><a class="reference internal" href="modules.html">modules</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="metrics.html">metrics module</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">utils module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="register.html">register module</a></li>
 </ul>
 </li>
 </ul>
@@ -340,6 +347,7 @@ Defaults to use all frames.</p></li>
   <li><a href="index.html">Documentation overview</a><ul>
   <li><a href="modules.html">modules</a><ul>
       <li>Previous: <a href="metrics.html" title="previous chapter">metrics module</a></li>
+      <li>Next: <a href="register.html" title="next chapter">register module</a></li>
   </ul></li>
   </ul></li>
 </ul>

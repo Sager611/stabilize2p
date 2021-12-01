@@ -51,10 +51,10 @@
 <span class="kn">from</span> <span class="nn">.utils</span> <span class="kn">import</span> <span class="n">estimate_background_threshold</span><span class="p">,</span> <span class="n">get_centers</span>
 
 
-<div class="viewcode-block" id="EMD"><a class="viewcode-back" href="../../metrics.html#stabilize2p.metrics.EMD">[docs]</a><span class="k">def</span> <span class="nf">EMD</span><span class="p">(</span><span class="n">video</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span> <span class="n">feat_frac</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<div class="viewcode-block" id="EMD"><a class="viewcode-back" href="../../metrics.html#stabilize2p.metrics.EMD">[docs]</a><span class="k">def</span> <span class="nf">EMD</span><span class="p">(</span><span class="n">video</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">50</span><span class="p">,</span> <span class="n">metric</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;euclidean&#39;</span><span class="p">,</span> <span class="n">feat_frac</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.2</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;Earth Moving Distance score (loosely inspired).</span>
 <span class="sd">    </span>
-<span class="sd">    This metric is not standard and it&#39;s not recomended its use, but only</span>
+<span class="sd">    This metric is not standard and it&#39;s not recomended to use practically, but only</span>
 <span class="sd">    for its novelty.</span>
 
 <span class="sd">    This is a generalization for the 1D Wasserstein distance.</span>
@@ -70,6 +70,9 @@
 <span class="sd">    n_samples : array</span>
 <span class="sd">        number of samples to take for each frame.</span>
 <span class="sd">        Defaults to 100.</span>
+<span class="sd">    metric : string</span>
+<span class="sd">        distance metric to use for optimal transport.</span>
+<span class="sd">        Defaults to &#39;euclidean&#39;</span>
 <span class="sd">    feat_frac : float</span>
 <span class="sd">        the amount, fraction, of the image that corresponds to the features.</span>
 <span class="sd">        In a formula:</span>
@@ -102,38 +105,39 @@
         <span class="n">I_pts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">c_</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">unravel_index</span><span class="p">(</span><span class="n">I_pts</span><span class="p">,</span> <span class="n">I</span><span class="o">.</span><span class="n">shape</span><span class="p">)][:,</span> <span class="p">::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
         <span class="n">J_pts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">c_</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">unravel_index</span><span class="p">(</span><span class="n">J_pts</span><span class="p">,</span> <span class="n">J</span><span class="o">.</span><span class="n">shape</span><span class="p">)][:,</span> <span class="p">::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
 
-        <span class="c1"># not really a distance metric, since it does not</span>
-        <span class="c1"># follow the triangle inequality</span>
-        <span class="n">W</span> <span class="o">=</span> <span class="p">(</span><span class="n">I</span> <span class="o">+</span> <span class="n">J</span><span class="p">)</span><span class="o">/</span><span class="mi">2</span>  <span class="c1"># W in [0, 1]</span>
-        <span class="n">W</span> <span class="o">=</span> <span class="n">W</span><span class="o">.</span><span class="n">T</span>
-        <span class="n">metric</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="p">(((</span><span class="n">u</span> <span class="o">-</span> <span class="n">v</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span><span class="o">+</span><span class="n">W</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">u</span><span class="p">)]</span><span class="o">-</span><span class="n">W</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">v</span><span class="p">)]))</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        <span class="c1"># # not really a distance metric, since it does not</span>
+        <span class="c1"># # follow the triangle inequality</span>
+        <span class="c1"># W = (I + J)/2  # W in [0, 1]</span>
+        <span class="c1"># W = W.T</span>
+        <span class="c1"># metric = lambda u, v: (((u - v) * (1+W[tuple(u)]-W[tuple(v)]))**2).sum()</span>
 
         <span class="n">d</span> <span class="o">=</span> <span class="n">cdist</span><span class="p">(</span><span class="n">I_pts</span><span class="p">,</span> <span class="n">J_pts</span><span class="p">,</span> <span class="n">metric</span><span class="o">=</span><span class="n">metric</span><span class="p">)</span>
         <span class="n">assignment</span> <span class="o">=</span> <span class="n">linear_sum_assignment</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
 
-<span class="c1">#         # We can repeat this process with a metric that</span>
-<span class="c1">#         # makes sure that near I samples are assigned to near</span>
-<span class="c1">#         # J samples</span>
-<span class="c1">#         for _ in range(2):</span>
-<span class="c1">#             F = (J_pts[assignment[1]] - I_pts)</span>
+        <span class="c1"># # We can repeat this process with a metric that</span>
+        <span class="c1"># # makes sure that near I samples are assigned to near</span>
+        <span class="c1"># # J samples</span>
+        <span class="c1"># for _ in range(2):</span>
+        <span class="c1">#     F = (J_pts[assignment[1]] - I_pts)</span>
 
-<span class="c1">#             # perform nearest neighbors on the parameters</span>
-<span class="c1">#             _, I_nn = NearestNeighbors(n_neighbors=2, algorithm=&#39;ball_tree&#39;) \</span>
-<span class="c1">#                 .fit(I_pts) \</span>
-<span class="c1">#                 .kneighbors(I_pts)</span>
-<span class="c1">#             I_nn = I_nn[:, 1]</span>
+        <span class="c1">#     # perform nearest neighbors on the parameters</span>
+        <span class="c1">#     _, I_nn = NearestNeighbors(n_neighbors=2, algorithm=&#39;ball_tree&#39;) \</span>
+        <span class="c1">#         .fit(I_pts) \</span>
+        <span class="c1">#         .kneighbors(I_pts)</span>
+        <span class="c1">#     I_nn = I_nn[:, 1]</span>
 
-<span class="c1">#             def metric2(ui, v):</span>
-<span class="c1">#                 ui = ui[0]</span>
-<span class="c1">#                 u = I_pts[ui]</span>
-<span class="c1">#                 F_cost = (((v - u) - F[I_nn[ui]])**2).sum()</span>
-<span class="c1">#                 return 10*F_cost + (((u - v) * (1+W[tuple(u)]-W[tuple(v)]))**2).sum()</span>
+        <span class="c1">#     def metric2(ui, v):</span>
+        <span class="c1">#         ui = ui[0]</span>
+        <span class="c1">#         u = I_pts[ui]</span>
+        <span class="c1">#         F_cost = (((v - u) - F[I_nn[ui]])**2).sum()</span>
+        <span class="c1">#         return 10*F_cost + (((u - v) * (1+W[tuple(u)]-W[tuple(v)]))**2).sum()</span>
 
-<span class="c1">#             I_temp = np.tile(np.arange(I_pts.shape[0])[:, np.newaxis], (1, 2))</span>
-<span class="c1">#             d = cdist(I_temp, J_pts, metric=metric2)</span>
-<span class="c1">#             assignment = linear_sum_assignment(d)</span>
+        <span class="c1">#     I_temp = np.tile(np.arange(I_pts.shape[0])[:, np.newaxis], (1, 2))</span>
+        <span class="c1">#     d = cdist(I_temp, J_pts, metric=metric2)</span>
+        <span class="c1">#     assignment = linear_sum_assignment(d)</span>
 
-        <span class="k">def</span> <span class="nf">score</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span> 
+        <span class="k">def</span> <span class="nf">score</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+            <span class="c1"># TODO: make it work in &gt;2D</span>
             <span class="n">I_vals</span> <span class="o">=</span> <span class="n">I</span><span class="p">[</span><span class="n">u</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">u</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span><span class="o">/</span><span class="mi">2</span>
             <span class="n">J_vals</span> <span class="o">=</span> <span class="n">J</span><span class="p">[</span><span class="n">v</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">v</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span><span class="o">/</span><span class="mi">2</span>
             <span class="n">scores</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">((((</span><span class="n">u</span> <span class="o">-</span> <span class="n">v</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="n">I_vals</span> <span class="o">+</span> <span class="n">J_vals</span><span class="p">))</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
@@ -161,7 +165,7 @@
     <span class="n">video</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">convert_to_tensor</span><span class="p">(</span><span class="n">video</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
 
     <span class="c1"># vxm NCC&#39;s assumes Ii, Ji are sized [batch_size, *vol_shape, nb_feats]</span>
-    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">vxm_ncc</span><span class="o">.</span><span class="n">loss</span><span class="p">(</span><span class="n">video</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">video</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span></div>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">vxm_ncc</span><span class="o">.</span><span class="n">loss</span><span class="p">(</span><span class="n">video</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">video</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span></div>
 
 
 <div class="viewcode-block" id="MSE"><a class="viewcode-back" href="../../metrics.html#stabilize2p.metrics.MSE">[docs]</a><span class="k">def</span> <span class="nf">MSE</span><span class="p">(</span><span class="n">video</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ref</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;previous&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>

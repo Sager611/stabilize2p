@@ -34,7 +34,7 @@ def com_transform(video: np.ndarray, inplace=False, downsample=2) -> np.ndarray:
 
     Returns
     -------
-    np.ndarray
+    array
         copy of the input video (or input ``video`` if ``inplace`` is True), 
         with the translation transform applied
     """
