@@ -6,8 +6,14 @@ Different approaches to stabilize 2-photon imaging video.
 Requirements
 ------------
 
-`make <https://www.gnu.org/software/make//>`_ should be installed.
+`make <https://www.gnu.org/software/make/>`_ should be installed.
 
+If you want to install tensorflow with Nvidia GPU support you have to install the `CUDA Toolkit <https://developer.nvidia.com/cuda-toolkit>`_ and `cuDNN <https://developer.nvidia.com/cudnn>`_. 
+Instructions are system-dependent. Otherwise, if you have `Anaconda <https://www.anaconda.com/>`_ installed, you can install them through:
+
+.. code:: shell
+
+    conda install -c conda-forge cudatoolkit cudnn
 
 Installation
 ------------
