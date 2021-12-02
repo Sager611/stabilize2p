@@ -7,23 +7,51 @@
 import logging
 
 import cv2
+import skimage
 import numpy as np
+from scipy import ndimage as ndi
+from skimage.feature import peak_local_max
 
 _LOGGER = logging.getLogger('stabilize2p')
 
 
-def otsu(image: np.ndarray, bins=255) -> float:
+def otsu(image: np.ndarray) -> float:
     """Calculate Otsu threshold.
     
     .. note::
     
         Otsu, Nobuyuki. “A threshold selection method from gray level histograms.” *IEEE Transactions on Systems, Man, and Cybernetics* 9 (1979): 62-66.
     """
-    otsu, _ = cv2.threshold(image.astype(np.float32), 0, bins, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    return otsu
+    # normalize image to use in cv2.threshold
+    low, hig = image.min(), image.max()
+    image = (image - low) / (hig - low) * 256
+    image = image.astype(np.uint8)
+
+    # Otsu improves with a Gaussian blur
+    k = int(0.01 * max(image.shape))
+    blur = cv2.GaussianBlur(image, (k, k), 0)
+
+    otsu, _ = cv2.threshold(blur, 0, 255, cv2.THRESH_OTSU)
+    return (otsu / 256) * (hig - low) + low
 
 
-def watershed(image: np.ndarray, num_peaks: int = 2, bins: int = 400) -> float:
+def triangle(image: np.ndarray) -> float:
+    """Calculate threshold using OpenCV's triangle method.
+
+    .. note::
+
+        Zack, G W et al. “Automatic measurement of sister chromatid exchange frequency.” *The journal of histochemistry and cytochemistry : official journal of the Histochemistry Society* vol. 25,7 (1977): 741-53. doi:10.1177/25.7.70454
+    """
+    # normalize image to use in cv2.threshold
+    low, hig = image.min(), image.max()
+    image = (image - low) / (hig - low) * 256
+    image = image.astype(np.uint8)
+
+    otsu, _ = cv2.threshold(image, 0, 255, cv2.THRESH_TRIANGLE)
+    return (otsu / 256) * (hig - low) + low
+
+
+def watershed(image: np.ndarray, num_peaks: int = 2, bins: int = 800) -> float:
     """Apply the watershed algorithm to find threshold between the first two histogram modes.
 
     In this method, it is assumed that the pixel values of ``image`` form a multi-modal
@@ -43,7 +71,6 @@ def watershed(image: np.ndarray, num_peaks: int = 2, bins: int = 400) -> float:
     pix_hist, bns = np.histogram(image.ravel(), bins=bins)
     # we assume by default num_peaks=2, that is, we have a bimodal pixel value histogram
     coords = peak_local_max(pix_hist, num_peaks=num_peaks)
-    hig = pix_hist.argmax()
 
     # if the distribution is uni-modal (in which case we assume that the 2nd predicted peak is small)
     if pix_hist[coords[1]]/pix_hist[coords[0]] < 0.1:
@@ -54,7 +81,7 @@ def watershed(image: np.ndarray, num_peaks: int = 2, bins: int = 400) -> float:
         mask[tuple(coords.T)] = True
         markers, _ = ndi.label(mask)
 
-        ws = watershed(-pix_hist, markers)
+        ws = skimage.segmentation.watershed(-pix_hist, markers)
         idx = np.where(ws[1:] > ws[:-1])[0]
 
         coords = np.sort(coords.ravel())

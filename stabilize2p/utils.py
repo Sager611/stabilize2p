@@ -24,8 +24,6 @@ import tensorflow as tf
 import voxelmorph as vxm
 from scipy import ndimage as ndi
 from matplotlib import pyplot as plt
-from skimage.segmentation import watershed
-from skimage.feature import peak_local_max
 from sklearn.utils import gen_batches
 from pystackreg import StackReg
 
