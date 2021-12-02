@@ -80,12 +80,22 @@ def com_transform(video: np.ndarray, inplace=False, downsample=2, target=None) -
             res = np.array([f.result() for f in futures])
             return res
 
-def ECC_transform(video: np.ndarray, nb_iters=5, eps=1e-6) -> np.ndarray:
+def ECC_transform(video: np.ndarray, nb_iters=5, eps=1e-6, ref=None) -> np.ndarray:
     """Affine alignment using :func:`cv2.findTransformECC`.
 
     >4 times faster than pystackreg's translation transform.
+
+    Parameters
+    ----------
+    video : array
+        input video to align
+    ref : array, optional
+        reference frame to align to.
+        Defaults to first frame in video
     """
-    ref = video[0].astype(np.float32)
+    if ref is None:
+        ref = video[0]
+    ref = ref.astype(np.float32)
 
     def loop(ref, I):
         I = I.astype(np.float32)

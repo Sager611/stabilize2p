@@ -49,12 +49,16 @@ def vxm_preprocessing(x, affine_transform=True, params=None):
     if affine_transform:
         t1 = time.perf_counter()
         # center-of-mass transform
-        target = np.array(x.shape[-1:0:-1])/2 if params is None else params['target']
-        register.com_transform(x, inplace=True, target=target)
+        # target = np.array(x.shape[-1:0:-1])/2 if params is None else params['target']
+        # register.com_transform(x, inplace=True, target=target)
+        ref = None if params is None else params['ref']
+        x = register.ECC_transform(x, ref=ref)
         t2 = time.perf_counter()
         _LOGGER.debug(f'Applied affine transform to {x.shape[0]} frames at a rate of {x.shape[0]/(t2-t1):.0f} frames/s')
+    else:
+        ref = None
 
-    return x, dict(low=low, hig=hig, bg_thresh=th, target=target)
+    return x, dict(low=low, hig=hig, bg_thresh=th, ref=ref)
 
 
 def vxm_data_generator(file_pool,
@@ -119,9 +123,11 @@ def vxm_data_generator(file_pool,
 
     for file_path in file_pool:
         video = tiff.imread(file_path, key=range(200))
-        video, params = vxm_preprocessing(video)
-        fixed_refs += [[_extract_ref(video), params]]
-        print('params: ', params)
+        video, params = vxm_preprocessing(video, affine_transform=False)
+
+        ref_ = _extract_ref(video)
+        params['ref'] = ref_
+        fixed_refs += [[ref_, params]]
 
     t2 = time.perf_counter()
     _LOGGER.info(f'Calculated "{ref}" fixed references in {t2-t1:.3g}s')
