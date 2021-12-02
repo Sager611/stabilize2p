@@ -38,7 +38,10 @@ parser.add_argument('--l2', type=float, default=1e-4,
 parser.add_argument('--load-weights', help='optional weights file to initialize with')
 parser.add_argument('--initial-epoch', type=int, default=0,
                     help='initial epoch number (default: 0)')
-parser.add_argument('--gpu', default='', help='visible GPU ID numbers. Goes into "CUDA_VISIBLE_DEVICES" env var (default: use all GPUs)')
+parser.add_argument('--gpu', default='',
+                    help='visible GPU ID numbers. Goes into "CUDA_VISIBLE_DEVICES" env var (default: use all GPUs)')
+parser.add_argument('--predict', action='store_true',
+                    help='Do not train, just load the model and predict on the dataset')
 
 # network architecture parameters
 parser.add_argument('--enc', type=int, nargs='+',
@@ -60,8 +63,11 @@ if args.initial_epoch >= args.epochs:
 
 if args.gpu:
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
-# suppress info TF logs
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+# suppress info and warn TF logs
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+
+# ## Imports
 
 import json
 import logging
@@ -95,7 +101,7 @@ plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
 plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
 # reduce logging in the package to only show errors
-logging.getLogger('stabilizer2p').setLevel(logging.ERROR)
+logging.getLogger('stabilize2p').setLevel(logging.ERROR)
 
 
 def frame_gen(video, scores=None, lt=0.9):
@@ -122,13 +128,12 @@ def frame_gen(video, scores=None, lt=0.9):
             yield img
 
 
+# ## Setup
+
 # read configuration file
 config = defaultdict()
 with open(args.config, 'r') as _config_f:
     config = json.load(_config_f)
-
-
-# ## Fully-Conv NN
 
 np.random.seed(args.random_seed)
 
@@ -143,120 +148,121 @@ in_shape = tiff.imread(config['training_pool'][0], key=0).shape
 enc_nf = args.enc if args.enc else [16, 32, 32, 128, 128]
 dec_nf = args.dec if args.dec else [128, 128, 32, 32, 32, 16, 16]
 
-# build model using VxmDense
-with strategy.scope():
-    vxm_model = vxm.networks.VxmDense(in_shape, [enc_nf, dec_nf], int_steps=0)
-
-
-# After loading our pre-trained model, we are going loop over all of its layers.
-# For each layer, we check if it supports regularization, and if it does, we add it
-if args.l2:
-    regularizer = tf.keras.regularizers.l2(args.l2)
-    for layer in vxm_model.layers:
-        for attr in ['kernel_regularizer']:
-            if hasattr(layer, attr):
-                setattr(layer, attr, regularizer)
-
-# load initial weights (if provided)
-if args.load_weights:
-    vxm_model.load_weights(args.load_weights)
-
-vxm_model.summary(line_length = 180)
-
-print('input shape: ', ', '.join([str(t.shape) for t in vxm_model.inputs]))
-print('output shape:', ', '.join([str(t.shape) for t in vxm_model.outputs]))
-
-
-# ## Loss
-
-# voxelmorph has a variety of custom loss classes
-losses = [None, vxm.losses.Grad('l2').loss]
-
-# prepare image loss
-if args.image_loss == 'ncc':
-    losses[0] = vxm.losses.NCC().loss
-elif args.image_loss == 'mse':
-    losses[0] = vxm.losses.MSE().loss
-else:
-    raise ValueError('Image loss should be "mse" or "ncc", but found "%s"' % args.image_loss)
-
-
-# usually, we have to balance the two losses by a hyper-parameter
-lambda_param = 0.05
-loss_weights = [1, lambda_param]
-
-
-# ## Compile model
-
-with strategy.scope():
-    vxm_model.compile(optimizer='Adam', loss=losses, loss_weights=loss_weights)
-
-
-# ## Train
-
-
-# data generators
-train_generator = vxm_data_generator(config['training_pool'], batch_size=args.batch_size)
-val_generator = vxm_data_generator(config['validation_pool'], batch_size=args.batch_size)
-
-nb_validation_frames = np.sum([len(tiff.TiffFile(file_path).pages) for file_path in config['validation_pool']])
-print(f'{nb_validation_frames=}')
-
-# training
+# weight save path
 save_filename = args.model_dir + '/vxm_drosophila_2d_{epoch:04d}.h5'
 
-save_callback = tf.keras.callbacks.ModelCheckpoint(save_filename, save_freq=args.steps_per_epoch*100)
 
-print(f'Training for {args.epochs} epochs')
-hist = vxm_model.fit(train_generator,
-                     initial_epoch=args.initial_epoch,
-                     epochs=args.epochs,
-                     steps_per_epoch=args.steps_per_epoch,
-                     validation_data=val_generator, validation_steps=(nb_validation_frames // args.batch_size),
-                     callbacks=[save_callback],
-                     verbose=1);
+def train():
+    # build model using VxmDense
+    with strategy.scope():
+        vxm_model = vxm.networks.VxmDense(in_shape, [enc_nf, dec_nf], int_steps=0)
 
-vxm_model.save_weights(save_filename.format(epoch=args.epochs))
+    # After loading our pre-trained model, we are going loop over all of its layers.
+    # For each layer, we check if it supports regularization, and if it does, we add it
+    if args.l2:
+        regularizer = tf.keras.regularizers.l2(args.l2)
+        for layer in vxm_model.layers:
+            for attr in ['kernel_regularizer']:
+                if hasattr(layer, attr):
+                    setattr(layer, attr, regularizer)
 
+    # load initial weights (if provided)
+    if args.load_weights:
+        vxm_model.load_weights(args.load_weights)
 
-# plot history
+    vxm_model.summary(line_length = 180)
 
-import pickle
-import matplotlib.pyplot as plt
-from itertools import cycle
+    print('input shape: ', ', '.join([str(t.shape) for t in vxm_model.inputs]))
+    print('output shape:', ', '.join([str(t.shape) for t in vxm_model.outputs]))
 
-def plot_history(hist, loss_names=['loss', 'val_loss']):
-    # Simple function to plot training history.
-    plt.figure(figsize=(10, 6))
+    # ## Loss
 
-    color = plt.cm.tab10(np.linspace(0, 1, 10))
-    c = cycle(color)
+    # voxelmorph has a variety of custom loss classes
+    losses = [None, vxm.losses.Grad('l2').loss]
 
-    # training losses
-    for loss_name in loss_names:
-        if loss_name in hist.history:
-            plt.plot(hist.epoch, hist.history[loss_name], '.-', c=next(c), label=loss_name)
-
-    # user-provided reference losses
-    for label, value in config["reference_losses"].items():
-        plt.axhline(value, label=label, ls='--', c=next(c))
-
-    plt.ylabel(args.image_loss + '+flow loss')
-    plt.xlabel('epoch')
-    plt.title('Training loss')
-    plt.legend()
-    plt.savefig(args.out_dir + '/history.svg')
+    # prepare image similarity loss
+    if args.image_loss == 'ncc':
+        losses[0] = vxm.losses.NCC().loss
+    elif args.image_loss == 'mse':
+        losses[0] = vxm.losses.MSE().loss
+    else:
+        raise ValueError('Image loss should be "mse" or "ncc", but found "%s"' % args.image_loss)
 
 
-# save to file
-with open(args.out_dir + '/history.pkl', 'wb') as file:
-    pickle.dump({'epoch': hist.epoch, 'history': hist.history}, file)
+    # usually, we have to balance the two losses by a hyper-parameter
+    lambda_param = 0.05
+    loss_weights = [1, lambda_param]
 
-plot_history(hist)
-print('plotted history')
 
-# no more need for training set
-del train_generator
+    # ## Compile model
+    with strategy.scope():
+        vxm_model.compile(optimizer='Adam', loss=losses, loss_weights=loss_weights)
+
+    # data generators
+    train_generator = vxm_data_generator(config['training_pool'], batch_size=args.batch_size)
+    val_generator = vxm_data_generator(config['validation_pool'], batch_size=args.batch_size)
+
+    nb_validation_frames = np.sum([len(tiff.TiffFile(file_path).pages) for file_path in config['validation_pool']])
+    print(f'{nb_validation_frames=}')
+
+    # training
+    save_callback = tf.keras.callbacks.ModelCheckpoint(save_filename, save_freq=args.steps_per_epoch*100)
+
+    print(f'Training for {args.epochs} epochs')
+    hist = vxm_model.fit(train_generator,
+                         initial_epoch=args.initial_epoch,
+                         epochs=args.epochs,
+                         steps_per_epoch=args.steps_per_epoch,
+                         validation_data=val_generator, validation_steps=(nb_validation_frames // args.batch_size),
+                         callbacks=[save_callback],
+                         verbose=1);
+
+    # save last epoch
+    vxm_model.save_weights(save_filename.format(epoch=args.epochs))
+
+
+    # plot history
+    import pickle
+    import matplotlib.pyplot as plt
+    from itertools import cycle
+
+    def plot_history(hist, loss_names=['loss', 'val_loss']):
+        # Simple function to plot training history.
+        plt.figure(figsize=(10, 6))
+
+        color = plt.cm.tab10(np.linspace(0, 1, 10))
+        c = cycle(color)
+
+        # training losses
+        for loss_name in loss_names:
+            if loss_name in hist.history:
+                plt.plot(hist.epoch, hist.history[loss_name], '.-', c=next(c), label=loss_name)
+
+        # user-provided reference losses
+        for label, value in config["reference_losses"].items():
+            plt.axhline(value, label=label, ls='--', c=next(c))
+
+        plt.ylabel(args.image_loss + '+flow loss')
+        plt.xlabel('epoch')
+        plt.title('Training loss')
+        plt.legend()
+        plt.savefig(args.out_dir + '/history.svg')
+
+
+    # save to file
+    with open(args.out_dir + '/history.pkl', 'wb') as file:
+        pickle.dump({'epoch': hist.epoch, 'history': hist.history}, file)
+
+    plot_history(hist)
+    print('plotted history')
+
+    # no more need for training set
+    del train_generator
+
+
+# ## Training
+if not args.predict:
+    train()
 
 
 # ## Validation
@@ -265,14 +271,12 @@ del train_generator
 with strategy.scope():
     vxm_model = vxm.networks.VxmDense(in_shape, [enc_nf, dec_nf], int_steps=0)
 
-
+# load weights
 path = save_filename.format(epoch=args.epochs)
 vxm_model.load_weights(path)
 print(f'loaded model from: {path}')
 
-
-# validation
-
+# predict validation-set
 val_generator = vxm_data_generator(config['validation_pool'][0], batch_size=args.batch_size, training=False)
 
 val_pred = []
@@ -286,14 +290,11 @@ val_pred = [
 np.save(args.out_dir + '/validation-video', val_pred[0])
 np.save(args.out_dir + '/validation-flow', val_pred[1])
 
-
 # visualize flow
-
 i, j = val_pred[1].shape[1]//2, val_pred[1].shape[2]//2
 ne.plot.flow([val_pred[1][0, i:i+100, j:j+100, :].squeeze()], width=16, show=False);
 plt.savefig(args.out_dir + '/example-flow.svg')
 
 # generate validation video
-
 make_video(args.out_dir + '/validation-video', frame_gen(val_pred[0]))
 print('generated validation video')

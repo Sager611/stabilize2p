@@ -13,7 +13,7 @@
         "../data/200901_G23xU1/Fly1/Fly1/005_coronal/2p/denoised_red.tif"
     ],
     "reference_losses": {
-        "ofco_MSE": 0.0006432684353060334,
-        "pysreg_MSE": 0.001003914889381947
+        "ofco_MSE": 0.00026716288833162944,
+        "pysreg_MSE": 0.0005298472272593422
     }
 }

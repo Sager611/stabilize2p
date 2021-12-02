@@ -31,26 +31,37 @@ from pystackreg import StackReg
 
 from . import register
 
-_LOGGER = logging.getLogger('stabilizer2p')
+_LOGGER = logging.getLogger('stabilize2p')
 
 
-def vxm_preprocessing(x, affine_tranform=True):
+def vxm_preprocessing(x, affine_transform=True, params=None):
+    # "remove' background
+    th = estimate_background_threshold(x) if params is None else params['bg_thresh'] 
+    np.clip(x, th, None, out=x)
+    x = x - th
+
     # normalize
-    low, hig = x.min(), x.max()
+    low = x.min() if params is None else params['low']
+    hig = x.max() if params is None else params['hig']
     x = (x - low) / (hig - low)
 
     # whether to perform an affine transform as a pre-step
-    if affine_tranform:
+    if affine_transform:
         t1 = time.perf_counter()
         # center-of-mass transform
-        register.com_transform(x, inplace=True)
+        target = np.array(x.shape[-1:0:-1])/2 if params is None else params['target']
+        register.com_transform(x, inplace=True, target=target)
         t2 = time.perf_counter()
         _LOGGER.debug(f'Applied affine transform to {x.shape[0]} frames at a rate of {x.shape[0]/(t2-t1):.0f} frames/s')
 
-    return x, (low, hig)
+    return x, dict(low=low, hig=hig, bg_thresh=th, target=target)
 
 
-def vxm_data_generator(file_pool, batch_size=16, training=True, affine_tranform=True):
+def vxm_data_generator(file_pool,
+                       batch_size=8,
+                       training=True,
+                       affine_transform=True,
+                       ref='mean'):
     """
     Generator that takes in data of size [N, H, W], and yields data for
     our custom vxm model. Note that we need to provide numpy data for each
@@ -69,9 +80,16 @@ def vxm_data_generator(file_pool, batch_size=16, training=True, affine_tranform=
     training : bool
         whether to activate training mode. Deactivating training mode means
         batches are generated in order, from the first file to the last
-    affine_tranform : bool
+    affine_transform : bool
         whether to perform an affine transform as a pre-step for every batch using
         :class:`pystackreg.StackReg`
+    ref : string
+        what image to use as the reference fixed image. Can be:
+        - 'first': use the first frame of the video file
+        - 'last': use the last frame of the video file
+        - 'mean': use the mean over frames of the video file
+        - 'median': use the median over frames of the video file
+        Defaults to 'mean'
     """
     if type(file_pool) is str:
         file_pool = [file_pool]
@@ -84,8 +102,29 @@ def vxm_data_generator(file_pool, batch_size=16, training=True, affine_tranform=
     # we'll explain this below
     zero_phi = np.zeros([batch_size, *vol_shape, ndims])
 
-    # fixed image reference frame is the initial frame
-    idx2 = np.zeros(batch_size, dtype=int)
+    # fixed image references for each file in the pool
+    fixed_refs: list = []
+    t1 = time.perf_counter()
+
+    if ref == 'first':
+        _extract_ref = lambda x: x[0]
+    elif ref == 'last':
+        _extract_ref = lambda x: x[-1]
+    elif ref == 'mean':
+        _extract_ref = lambda x: np.mean(x, axis=0)
+    elif ref == 'median':
+        _extract_ref = lambda x: np.median(x, axis=0)
+    else:
+        raise ValueError(f'``ref`` arg must be: first, last, mean or median. Provided: {ref}')
+
+    for file_path in file_pool:
+        video = tiff.imread(file_path, key=range(200))
+        video, params = vxm_preprocessing(video)
+        fixed_refs += [[_extract_ref(video), params]]
+        print('params: ', params)
+
+    t2 = time.perf_counter()
+    _LOGGER.info(f'Calculated "{ref}" fixed references in {t2-t1:.3g}s')
 
     if training:
         while True:
@@ -94,40 +133,51 @@ def vxm_data_generator(file_pool, batch_size=16, training=True, affine_tranform=
 
             idx1 = np.random.randint(0, nb_frames, size=batch_size)
             x_data = tiff.imread(file_pool[file_i], key=idx1)
-            x_data, _ = vxm_preprocessing(x_data, affine_tranform=affine_tranform)
-            
+            x_data, _ = vxm_preprocessing(
+                x_data, 
+                affine_transform=affine_transform,
+                params=fixed_refs[file_i][1]
+            )
+
+            fixed = fixed_refs[file_i][0][np.newaxis, ..., np.newaxis]
+            fixed = np.tile(fixed, (batch_size, 1, 1, 1))
+
             # prepare inputs:
             # images need to be of the size [batch_size, H, W, 1]
             moving_images = x_data[..., np.newaxis]
-            fixed_images = x_data[idx2, ..., np.newaxis]
-            inputs = [moving_images, fixed_images]
+            inputs = [moving_images, fixed]
 
             # prepare outputs (the 'true' moved image):
             # of course, we don't have this, but we know we want to compare 
             # the resulting moved image with the fixed image. 
             # we also wish to penalize the deformation field. 
-            outputs = [fixed_images, zero_phi]
+            outputs = [fixed, zero_phi]
 
             yield (inputs, outputs)
     else:
-        for file_path in file_pool:
+        for file_i, file_path in enumerate(file_pool):
             nb_frames = len(tiff.TiffFile(file_path).pages)
             for idx in gen_batches(nb_frames, batch_size):
                 x_data = tiff.imread(file_path, key=idx)
-                x_data, _ = vxm_preprocessing(x_data, affine_tranform=affine_tranform)
+                x_data, _ = vxm_preprocessing(
+                    x_data, 
+                    affine_transform=affine_transform,
+                    params=fixed_refs[file_i][1]
+                )
+
+                fixed = fixed_refs[file_i][0][np.newaxis, ..., np.newaxis]
+                fixed = np.tile(fixed, (x_data.shape[0], 1, 1, 1))
 
                 # prepare inputs:
                 # images need to be of the size [batch_size, H, W, 1]
                 moving_images = x_data[..., np.newaxis]
-                fixed_images = x_data[idx2[:moving_images.shape[0]], ..., np.newaxis]
-                inputs = [moving_images, fixed_images]
-
+                inputs = [moving_images, fixed]
 
                 # prepare outputs (the 'true' moved image):
                 # of course, we don't have this, but we know we want to compare 
                 # the resulting moved image with the fixed image. 
                 # we also wish to penalize the deformation field. 
-                outputs = [fixed_images, zero_phi]
+                outputs = [fixed, zero_phi]
 
                 yield (inputs, outputs)
 
@@ -140,9 +190,9 @@ def estimate_background_threshold(image: np.ndarray, num_peaks: int = 2, bins: i
     image : array
         2D image
     num_peaks : int, optional
-        a-priori number of peaks that the pixel value histogram of ``image`` has.
+        a-priori number of peaks that the pixel value histogram of ``image`` has
     bins : int, optional
-        number of bins to use for the pixel value histogram of ``image``.
+        number of bins to use for the pixel value histogram of ``image``
     """
     pix_hist, bns = np.histogram(image.ravel(), bins=bins)
     # we assume by default num_peaks=2, that is, we have a bimodal pixel value histogram
@@ -161,9 +211,14 @@ def estimate_background_threshold(image: np.ndarray, num_peaks: int = 2, bins: i
 
         ws = watershed(-pix_hist, markers)
         idx = np.where(ws[1:] > ws[:-1])[0]
-        # threshold is between the two first local maxima
+
         coords = np.sort(coords.ravel())
-        threshold_i = idx[(idx >= coords[0]) & (idx <= coords[1])].min()
+        if idx.size == 0:
+            threshold_i = int(coords[0])
+        else:
+            # threshold is between the two first local maxima
+            assert np.sum((idx >= coords[0]) & (idx <= coords[1])) > 0, f'{coords=} | {idx=}'
+            threshold_i = idx[(idx >= coords[0]) & (idx <= coords[1])].min()
     return bns[threshold_i:(threshold_i+1)].mean()
 
 

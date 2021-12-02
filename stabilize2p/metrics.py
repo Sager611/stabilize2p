@@ -14,6 +14,7 @@ from sklearn.metrics import mean_squared_error
 from scipy.spatial.distance import cdist
 from scipy.optimize import linear_sum_assignment
 from sklearn.neighbors import NearestNeighbors
+from sklearn.utils import gen_batches
 
 from .utils import estimate_background_threshold, get_centers
 
@@ -129,10 +130,14 @@ def NCC(video: np.ndarray) -> float:
     This method works on 2D and 3D video inputs.
     """
     vxm_ncc = vxm.losses.NCC()
-    video = tf.convert_to_tensor(video[..., np.newaxis], dtype=np.float32)
 
-    # vxm NCC's assumes Ii, Ji are sized [batch_size, *vol_shape, nb_feats]
-    return np.median(vxm_ncc.loss(video[1:], video[:-1]))
+    res = []
+    for sl in gen_batches(video.shape[0], 128):
+        # vxm NCC's assumes Ii, Ji are sized [batch_size, *vol_shape, nb_feats]
+        frames = tf.convert_to_tensor(video[sl, ..., np.newaxis], dtype=np.float32)
+        print(sl)
+        res += [vxm_ncc.loss(frames[1:], frames[:-1])]
+    return np.mean(res)
 
 
 def MSE(video: np.ndarray, ref: str = 'previous') -> float:

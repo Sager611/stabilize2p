@@ -5,12 +5,12 @@ __email__ = "adrian.sagerlaganga@epfl.ch"
 
 
 def initialize():
-    if '_stabilizer2p_initialized' in globals():
+    if '_stabilize2p_initialized' in globals():
         return
-    global _ofco_initialized
-    _stabilizer2p_initialized = True
+    global _stabilize2p_initialized
+    _stabilize2p_initialized = True
 
-    logger = logging.getLogger('stabilizer2p')
+    logger = logging.getLogger('stabilize2p')
     logger.setLevel(logging.INFO)
     stream_handler = logging.StreamHandler()
     formatter = \
