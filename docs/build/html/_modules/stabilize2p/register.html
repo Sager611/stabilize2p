@@ -31,7 +31,7 @@
           <div class="body" role="main">
             
   <h1>Source code for stabilize2p.register</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;Methods and classes used for image registration.</span>
+<span></span><span class="sd">&quot;&quot;&quot;Methods used for image registration.</span>
 
 <span class="sd">.. moduleauthor:: Adrian Sager &lt;adrian.sagerlaganga@epfl.ch&gt;</span>
 
@@ -40,17 +40,24 @@
 <span class="kn">import</span> <span class="nn">time</span>
 <span class="kn">from</span> <span class="nn">concurrent.futures.thread</span> <span class="kn">import</span> <span class="n">ThreadPoolExecutor</span>
 
+<span class="kn">import</span> <span class="nn">cv2</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">pystackreg</span> <span class="kn">import</span> <span class="n">StackReg</span>
 <span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">ndimage</span> <span class="k">as</span> <span class="n">ndi</span>
-<span class="c1"># from skimage.measure import block_reduce</span>
 
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">utils</span>
 
 
-<div class="viewcode-block" id="com_transform"><a class="viewcode-back" href="../../register.html#stabilize2p.register.com_transform">[docs]</a><span class="k">def</span> <span class="nf">com_transform</span><span class="p">(</span><span class="n">video</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">downsample</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<div class="viewcode-block" id="pysreg_transform"><a class="viewcode-back" href="../../register.html#stabilize2p.register.pysreg_transform">[docs]</a><span class="k">def</span> <span class="nf">pysreg_transform</span><span class="p">(</span><span class="n">video</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">StackReg</span><span class="o">.</span><span class="n">AFFINE</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="s1">&#39;first&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Apply :class:`pystackreg.StackReg` to ``video``.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">StackReg</span><span class="p">(</span><span class="n">method</span><span class="p">)</span><span class="o">.</span><span class="n">register_transform_stack</span><span class="p">(</span><span class="n">video</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="n">reference</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="com_transform"><a class="viewcode-back" href="../../register.html#stabilize2p.register.com_transform">[docs]</a><span class="k">def</span> <span class="nf">com_transform</span><span class="p">(</span><span class="n">video</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">downsample</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;Fast translation alignment of frames based on the Center of Mass.</span>
 
-<span class="sd">    &gt;30 times faster than pystackreg&#39;s translation transform.</span>
+<span class="sd">    This method is not very precise.</span>
+<span class="sd">    &gt;40 times faster than pystackreg&#39;s translation transform.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -64,20 +71,28 @@
 <span class="sd">        CoM and background threshold.</span>
 
 <span class="sd">        Default is 2. This improves performance at a very low cost on accuracy</span>
+<span class="sd">    target : array</span>
+<span class="sd">        Pixel point target that CoMs must arrive to (must be positive).</span>
+<span class="sd">        Defaut is None, which means that ``target`` is calculated as the mean</span>
+<span class="sd">        of the CoMs of the frames of ``video``</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
-<span class="sd">    np.ndarray</span>
+<span class="sd">    array</span>
 <span class="sd">        copy of the input video (or input ``video`` if ``inplace`` is True), </span>
 <span class="sd">        with the translation transform applied</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># if input is a single image, we cannot align it</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">video</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">3</span> <span class="ow">or</span> <span class="n">video</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">video</span>
+
     <span class="c1"># we need to get the center of mass of the _features_,</span>
     <span class="c1"># the background should not have any influence</span>
     <span class="n">sparse</span> <span class="o">=</span> <span class="n">video</span><span class="p">[:,</span> <span class="p">::</span><span class="n">downsample</span><span class="p">,</span> <span class="p">::</span><span class="n">downsample</span><span class="p">]</span>
-    <span class="n">th</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">estimate_background_threshold</span><span class="p">(</span><span class="n">sparse</span><span class="p">)</span>
+    <span class="n">th</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">estimate_background_threshold</span><span class="p">(</span><span class="n">video</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
     <span class="n">cs</span> <span class="o">=</span> <span class="n">utils</span><span class="o">.</span><span class="n">get_centers</span><span class="p">(</span><span class="n">sparse</span> <span class="o">-</span> <span class="n">th</span><span class="p">)</span>
-    <span class="n">mean_center</span> <span class="o">=</span> <span class="n">cs</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-    <span class="n">shifts</span> <span class="o">=</span> <span class="p">(</span><span class="n">mean_center</span> <span class="o">-</span> <span class="n">cs</span><span class="p">)</span> <span class="o">*</span> <span class="n">downsample</span>
+    <span class="n">target</span> <span class="o">=</span> <span class="n">cs</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="n">target</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">target</span> <span class="o">/</span> <span class="mi">2</span>
+    <span class="n">shifts</span> <span class="o">=</span> <span class="p">(</span><span class="n">target</span> <span class="o">-</span> <span class="n">cs</span><span class="p">)</span> <span class="o">*</span> <span class="n">downsample</span>
     <span class="c1"># scipy requires a (row, column) format</span>
     <span class="n">shifts</span> <span class="o">=</span> <span class="n">shifts</span><span class="p">[:,</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">]]</span>
     <span class="c1"># use parallelism</span>
@@ -97,7 +112,34 @@
             <span class="p">]</span>
             <span class="n">res</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">f</span><span class="o">.</span><span class="n">result</span><span class="p">()</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">futures</span><span class="p">])</span>
             <span class="k">return</span> <span class="n">res</span></div>
-    
+
+<div class="viewcode-block" id="ECC_transform"><a class="viewcode-back" href="../../register.html#stabilize2p.register.ECC_transform">[docs]</a><span class="k">def</span> <span class="nf">ECC_transform</span><span class="p">(</span><span class="n">video</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">nb_iters</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Affine alignment using :func:`cv2.findTransformECC`.</span>
+
+<span class="sd">    &gt;4 times faster than pystackreg&#39;s translation transform.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">ref</span> <span class="o">=</span> <span class="n">video</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">loop</span><span class="p">(</span><span class="n">ref</span><span class="p">,</span> <span class="n">I</span><span class="p">):</span>
+        <span class="n">I</span> <span class="o">=</span> <span class="n">I</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="n">warp_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+        <span class="n">criteria</span> <span class="o">=</span> <span class="p">(</span><span class="n">cv2</span><span class="o">.</span><span class="n">TERM_CRITERIA_EPS</span> <span class="o">|</span> <span class="n">cv2</span><span class="o">.</span><span class="n">TERM_CRITERIA_COUNT</span><span class="p">,</span> <span class="n">nb_iters</span><span class="p">,</span> <span class="n">eps</span><span class="p">)</span>
+
+        <span class="c1"># Run the ECC algorithm. The results are stored in warp_matrix.</span>
+        <span class="p">(</span><span class="n">cc</span><span class="p">,</span> <span class="n">warp_matrix</span><span class="p">)</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">findTransformECC</span><span class="p">(</span><span class="n">ref</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="n">warp_matrix</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">MOTION_AFFINE</span><span class="p">,</span> <span class="n">criteria</span><span class="p">)</span>
+
+        <span class="c1"># Use warpAffine for Translation, Euclidean and Affine</span>
+        <span class="n">I_moved</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">warpAffine</span><span class="p">(</span><span class="n">I</span><span class="p">,</span> <span class="n">warp_matrix</span><span class="p">,</span> <span class="p">(</span><span class="n">ref</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">ref</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">flags</span><span class="o">=</span><span class="n">cv2</span><span class="o">.</span><span class="n">INTER_LINEAR</span> <span class="o">+</span> <span class="n">cv2</span><span class="o">.</span><span class="n">WARP_INVERSE_MAP</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">I_moved</span>
+
+    <span class="c1"># use parallelism</span>
+    <span class="k">with</span> <span class="n">ThreadPoolExecutor</span><span class="p">()</span> <span class="k">as</span> <span class="n">executor</span><span class="p">:</span>
+        <span class="n">futures</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">executor</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="n">loop</span><span class="p">,</span> <span class="n">ref</span><span class="p">,</span> <span class="n">frame</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">frame</span> <span class="ow">in</span> <span class="n">video</span>
+        <span class="p">]</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">f</span><span class="o">.</span><span class="n">result</span><span class="p">()</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">futures</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">res</span></div>
 </pre></div>
 
           </div>
@@ -156,7 +198,7 @@
       &copy;2021, Adrian Sager La Ganga.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.3.1</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.2.0</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>

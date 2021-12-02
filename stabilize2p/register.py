@@ -1,4 +1,4 @@
-"""Methods and classes used for image registration.
+"""Methods used for image registration.
 
 .. moduleauthor:: Adrian Sager <adrian.sagerlaganga@epfl.ch>
 
