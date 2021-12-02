@@ -113,12 +113,22 @@
             <span class="n">res</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">f</span><span class="o">.</span><span class="n">result</span><span class="p">()</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">futures</span><span class="p">])</span>
             <span class="k">return</span> <span class="n">res</span></div>
 
-<div class="viewcode-block" id="ECC_transform"><a class="viewcode-back" href="../../register.html#stabilize2p.register.ECC_transform">[docs]</a><span class="k">def</span> <span class="nf">ECC_transform</span><span class="p">(</span><span class="n">video</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">nb_iters</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<div class="viewcode-block" id="ECC_transform"><a class="viewcode-back" href="../../register.html#stabilize2p.register.ECC_transform">[docs]</a><span class="k">def</span> <span class="nf">ECC_transform</span><span class="p">(</span><span class="n">video</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">nb_iters</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;Affine alignment using :func:`cv2.findTransformECC`.</span>
 
 <span class="sd">    &gt;4 times faster than pystackreg&#39;s translation transform.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    video : array</span>
+<span class="sd">        input video to align</span>
+<span class="sd">    ref : array, optional</span>
+<span class="sd">        reference frame to align to.</span>
+<span class="sd">        Defaults to first frame in video</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">ref</span> <span class="o">=</span> <span class="n">video</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">ref</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">ref</span> <span class="o">=</span> <span class="n">video</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">ref</span> <span class="o">=</span> <span class="n">ref</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">loop</span><span class="p">(</span><span class="n">ref</span><span class="p">,</span> <span class="n">I</span><span class="p">):</span>
         <span class="n">I</span> <span class="o">=</span> <span class="n">I</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
@@ -198,7 +208,7 @@
       &copy;2021, Adrian Sager La Ganga.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.2.0</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.3.1</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>

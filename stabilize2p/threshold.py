@@ -26,8 +26,8 @@ def otsu(image: np.ndarray, bins=255) -> float:
 def watershed(image: np.ndarray, num_peaks: int = 2, bins: int = 400) -> float:
     """Apply the watershed algorithm to find threshold between the first two histogram modes.
 
-    In this method, it is assumed that the pixel values of ``image`` form a bimodal
-    histogram, in which the lower mode corresponds to background pixels and the higher one
+    In this method, it is assumed that the pixel values of ``image`` form a multi-modal
+    histogram, in which the lower mode corresponds to background pixels and the 2nd lowest one
     is the foreground. Thus, the threshold is estimated to be in the valley between
     these two.
 
@@ -40,7 +40,7 @@ def watershed(image: np.ndarray, num_peaks: int = 2, bins: int = 400) -> float:
     bins : int, optional
         number of bins to use for the pixel value histogram of ``image``
     """
-     pix_hist, bns = np.histogram(image.ravel(), bins=bins)
+    pix_hist, bns = np.histogram(image.ravel(), bins=bins)
     # we assume by default num_peaks=2, that is, we have a bimodal pixel value histogram
     coords = peak_local_max(pix_hist, num_peaks=num_peaks)
     hig = pix_hist.argmax()

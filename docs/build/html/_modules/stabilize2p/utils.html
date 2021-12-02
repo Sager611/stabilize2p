@@ -63,13 +63,14 @@
 <span class="kn">from</span> <span class="nn">pystackreg</span> <span class="kn">import</span> <span class="n">StackReg</span>
 
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">register</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">threshold</span>
 
 <span class="n">_LOGGER</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;stabilize2p&#39;</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="vxm_preprocessing"><a class="viewcode-back" href="../../utils.html#stabilize2p.utils.vxm_preprocessing">[docs]</a><span class="k">def</span> <span class="nf">vxm_preprocessing</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">affine_transform</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
     <span class="c1"># &quot;remove&#39; background</span>
-    <span class="n">th</span> <span class="o">=</span> <span class="n">estimate_background_threshold</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">if</span> <span class="n">params</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;bg_thresh&#39;</span><span class="p">]</span> 
+    <span class="n">th</span> <span class="o">=</span> <span class="n">threshold</span><span class="o">.</span><span class="n">watershed</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">if</span> <span class="n">params</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;bg_thresh&#39;</span><span class="p">]</span> 
     <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">th</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">x</span><span class="p">)</span>
     <span class="n">x</span> <span class="o">=</span> <span class="n">x</span> <span class="o">-</span> <span class="n">th</span>
 
@@ -82,12 +83,16 @@
     <span class="k">if</span> <span class="n">affine_transform</span><span class="p">:</span>
         <span class="n">t1</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
         <span class="c1"># center-of-mass transform</span>
-        <span class="n">target</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">:</span><span class="mi">0</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span><span class="o">/</span><span class="mi">2</span> <span class="k">if</span> <span class="n">params</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;target&#39;</span><span class="p">]</span>
-        <span class="n">register</span><span class="o">.</span><span class="n">com_transform</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="n">target</span><span class="p">)</span>
+        <span class="c1"># target = np.array(x.shape[-1:0:-1])/2 if params is None else params[&#39;target&#39;]</span>
+        <span class="c1"># register.com_transform(x, inplace=True, target=target)</span>
+        <span class="n">ref</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">params</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;ref&#39;</span><span class="p">]</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">register</span><span class="o">.</span><span class="n">ECC_transform</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="n">ref</span><span class="p">)</span>
         <span class="n">t2</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
         <span class="n">_LOGGER</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Applied affine transform to </span><span class="si">{</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s1"> frames at a rate of </span><span class="si">{</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="p">(</span><span class="n">t2</span><span class="o">-</span><span class="n">t1</span><span class="p">)</span><span class="si">:</span><span class="s1">.0f</span><span class="si">}</span><span class="s1"> frames/s&#39;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">ref</span> <span class="o">=</span> <span class="kc">None</span>
 
-    <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="nb">dict</span><span class="p">(</span><span class="n">low</span><span class="o">=</span><span class="n">low</span><span class="p">,</span> <span class="n">hig</span><span class="o">=</span><span class="n">hig</span><span class="p">,</span> <span class="n">bg_thresh</span><span class="o">=</span><span class="n">th</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="n">target</span><span class="p">)</span></div>
+    <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="nb">dict</span><span class="p">(</span><span class="n">low</span><span class="o">=</span><span class="n">low</span><span class="p">,</span> <span class="n">hig</span><span class="o">=</span><span class="n">hig</span><span class="p">,</span> <span class="n">bg_thresh</span><span class="o">=</span><span class="n">th</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="n">ref</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="vxm_data_generator"><a class="viewcode-back" href="../../utils.html#stabilize2p.utils.vxm_data_generator">[docs]</a><span class="k">def</span> <span class="nf">vxm_data_generator</span><span class="p">(</span><span class="n">file_pool</span><span class="p">,</span>
@@ -152,9 +157,11 @@
 
     <span class="k">for</span> <span class="n">file_path</span> <span class="ow">in</span> <span class="n">file_pool</span><span class="p">:</span>
         <span class="n">video</span> <span class="o">=</span> <span class="n">tiff</span><span class="o">.</span><span class="n">imread</span><span class="p">(</span><span class="n">file_path</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="nb">range</span><span class="p">(</span><span class="mi">200</span><span class="p">))</span>
-        <span class="n">video</span><span class="p">,</span> <span class="n">params</span> <span class="o">=</span> <span class="n">vxm_preprocessing</span><span class="p">(</span><span class="n">video</span><span class="p">)</span>
-        <span class="n">fixed_refs</span> <span class="o">+=</span> <span class="p">[[</span><span class="n">_extract_ref</span><span class="p">(</span><span class="n">video</span><span class="p">),</span> <span class="n">params</span><span class="p">]]</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;params: &#39;</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+        <span class="n">video</span><span class="p">,</span> <span class="n">params</span> <span class="o">=</span> <span class="n">vxm_preprocessing</span><span class="p">(</span><span class="n">video</span><span class="p">,</span> <span class="n">affine_transform</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="n">ref_</span> <span class="o">=</span> <span class="n">_extract_ref</span><span class="p">(</span><span class="n">video</span><span class="p">)</span>
+        <span class="n">params</span><span class="p">[</span><span class="s1">&#39;ref&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ref_</span>
+        <span class="n">fixed_refs</span> <span class="o">+=</span> <span class="p">[[</span><span class="n">ref_</span><span class="p">,</span> <span class="n">params</span><span class="p">]]</span>
 
     <span class="n">t2</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
     <span class="n">_LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Calculated &quot;</span><span class="si">{</span><span class="n">ref</span><span class="si">}</span><span class="s1">&quot; fixed references in </span><span class="si">{</span><span class="n">t2</span><span class="o">-</span><span class="n">t1</span><span class="si">:</span><span class="s1">.3g</span><span class="si">}</span><span class="s1">s&#39;</span><span class="p">)</span>
@@ -213,46 +220,6 @@
                 <span class="n">outputs</span> <span class="o">=</span> <span class="p">[</span><span class="n">fixed</span><span class="p">,</span> <span class="n">zero_phi</span><span class="p">]</span>
 
                 <span class="k">yield</span> <span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">outputs</span><span class="p">)</span></div>
-
-
-<div class="viewcode-block" id="estimate_background_threshold"><a class="viewcode-back" href="../../utils.html#stabilize2p.utils.estimate_background_threshold">[docs]</a><span class="k">def</span> <span class="nf">estimate_background_threshold</span><span class="p">(</span><span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">num_peaks</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span> <span class="n">bins</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">400</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Uses the 1D watershed algorithm to estimate the pixel value where background becomes foreground.</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    image : array</span>
-<span class="sd">        2D image</span>
-<span class="sd">    num_peaks : int, optional</span>
-<span class="sd">        a-priori number of peaks that the pixel value histogram of ``image`` has</span>
-<span class="sd">    bins : int, optional</span>
-<span class="sd">        number of bins to use for the pixel value histogram of ``image``</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">pix_hist</span><span class="p">,</span> <span class="n">bns</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">histogram</span><span class="p">(</span><span class="n">image</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span> <span class="n">bins</span><span class="o">=</span><span class="n">bins</span><span class="p">)</span>
-    <span class="c1"># we assume by default num_peaks=2, that is, we have a bimodal pixel value histogram</span>
-    <span class="n">coords</span> <span class="o">=</span> <span class="n">peak_local_max</span><span class="p">(</span><span class="n">pix_hist</span><span class="p">,</span> <span class="n">num_peaks</span><span class="o">=</span><span class="n">num_peaks</span><span class="p">)</span>
-    <span class="n">hig</span> <span class="o">=</span> <span class="n">pix_hist</span><span class="o">.</span><span class="n">argmax</span><span class="p">()</span>
-    <span class="c1"># assert hig == coords[0], f&#39;{hig=} | {coords=}&#39;</span>
-
-    <span class="c1"># if the distribution is uni-modal (in which case we assume that the 2nd predicted peak is small)</span>
-    <span class="k">if</span> <span class="n">pix_hist</span><span class="p">[</span><span class="n">coords</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span><span class="o">/</span><span class="n">pix_hist</span><span class="p">[</span><span class="n">coords</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">&lt;</span> <span class="mf">0.1</span><span class="p">:</span>
-        <span class="n">threshold_i</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">coords</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-        <span class="n">_LOGGER</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s1">&#39;pixel histogram is uni-modal, estimated threshold may not be accurate.&#39;</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">pix_hist</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
-        <span class="n">mask</span><span class="p">[</span><span class="nb">tuple</span><span class="p">(</span><span class="n">coords</span><span class="o">.</span><span class="n">T</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">True</span>
-        <span class="n">markers</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">ndi</span><span class="o">.</span><span class="n">label</span><span class="p">(</span><span class="n">mask</span><span class="p">)</span>
-
-        <span class="n">ws</span> <span class="o">=</span> <span class="n">watershed</span><span class="p">(</span><span class="o">-</span><span class="n">pix_hist</span><span class="p">,</span> <span class="n">markers</span><span class="p">)</span>
-        <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">ws</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">&gt;</span> <span class="n">ws</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
-
-        <span class="n">coords</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">coords</span><span class="o">.</span><span class="n">ravel</span><span class="p">())</span>
-        <span class="k">if</span> <span class="n">idx</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">threshold_i</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">coords</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># threshold is between the two first local maxima</span>
-            <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">idx</span> <span class="o">&gt;=</span> <span class="n">coords</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">idx</span> <span class="o">&lt;=</span> <span class="n">coords</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">coords</span><span class="si">=}</span><span class="s1"> | </span><span class="si">{</span><span class="n">idx</span><span class="si">=}</span><span class="s1">&#39;</span>
-            <span class="n">threshold_i</span> <span class="o">=</span> <span class="n">idx</span><span class="p">[(</span><span class="n">idx</span> <span class="o">&gt;=</span> <span class="n">coords</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">idx</span> <span class="o">&lt;=</span> <span class="n">coords</span><span class="p">[</span><span class="mi">1</span><span class="p">])]</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
-    <span class="k">return</span> <span class="n">bns</span><span class="p">[</span><span class="n">threshold_i</span><span class="p">:(</span><span class="n">threshold_i</span><span class="o">+</span><span class="mi">1</span><span class="p">)]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span></div>
 
 
 <div class="viewcode-block" id="get_centers"><a class="viewcode-back" href="../../utils.html#stabilize2p.utils.get_centers">[docs]</a><span class="k">def</span> <span class="nf">get_centers</span><span class="p">(</span><span class="n">video</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
@@ -893,7 +860,7 @@
       &copy;2021, Adrian Sager La Ganga.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.2.0</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.3.1</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>

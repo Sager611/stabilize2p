@@ -33,75 +33,8 @@
 
           <div class="body" role="main">
             
-  <section id="module-stabilize2p.metrics">
-<span id="metrics-module"></span><h1>metrics module<a class="headerlink" href="#module-stabilize2p.metrics" title="Permalink to this headline">¶</a></h1>
-<p>Evaluation metrics module.</p>
-<dl class="py function">
-<dt class="sig sig-object py" id="stabilize2p.metrics.EMD">
-<span class="sig-prename descclassname"><span class="pre">stabilize2p.metrics.</span></span><span class="sig-name descname"><span class="pre">EMD</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">numpy.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_samples</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">int</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metric</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">'euclidean'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feat_frac</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">float</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">0.2</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="_modules/stabilize2p/metrics.html#EMD"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.metrics.EMD" title="Permalink to this definition">¶</a></dt>
-<dd><p>Earth Moving Distance score (loosely inspired).</p>
-<p>This metric is not standard and it’s not recomended to use practically, but only
-for its novelty.</p>
-<p>This is a generalization for the 1D Wasserstein distance.</p>
-<p><code class="docutils literal notranslate"><span class="pre">n_samples</span></code> samples are taken for each frame, considering the frame
-an n-dimensional distribution. Then, for each two consecutive frames,
-their sampled points are run through <code class="xref py py-func docutils literal notranslate"><span class="pre">scipy.optimize.linear_sum_assignment()</span></code>.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>video</strong> (<em>array</em>) – n-dimensional video</p></li>
-<li><p><strong>n_samples</strong> (<em>array</em>) – number of samples to take for each frame.
-Defaults to 100.</p></li>
-<li><p><strong>metric</strong> (<em>string</em>) – distance metric to use for optimal transport.
-Defaults to ‘euclidean’</p></li>
-<li><p><strong>feat_frac</strong> (<em>float</em>) – <p>the amount, fraction, of the image that corresponds to the features.
-In a formula:</p>
-<p><code class="docutils literal notranslate"><span class="pre">feat_frac</span> <span class="pre">=</span> <span class="pre">(#</span> <span class="pre">feature</span> <span class="pre">pixels)</span> <span class="pre">/</span> <span class="pre">(#</span> <span class="pre">total</span> <span class="pre">pixels)</span></code></p>
-<p>Defaults to 0.1</p>
-</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="stabilize2p.metrics.MSE">
-<span class="sig-prename descclassname"><span class="pre">stabilize2p.metrics.</span></span><span class="sig-name descname"><span class="pre">MSE</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">numpy.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">'previous'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="_modules/stabilize2p/metrics.html#MSE"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.metrics.MSE" title="Permalink to this definition">¶</a></dt>
-<dd><p>Return MSE score with respect to some reference image.</p>
-<p>This method is tested on 2D videos, but should work on 3D videos as well.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>video</strong> (<em>array</em>) – Contains the video information</p></li>
-<li><p><strong>ref</strong> (<em>string</em>) – Reference frame/image to use as approx for round-truth.
-Either: previous, median or mean
-Default is ‘previous’</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="stabilize2p.metrics.NCC">
-<span class="sig-prename descclassname"><span class="pre">stabilize2p.metrics.</span></span><span class="sig-name descname"><span class="pre">NCC</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">numpy.ndarray</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="_modules/stabilize2p/metrics.html#NCC"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.metrics.NCC" title="Permalink to this definition">¶</a></dt>
-<dd><p>Normalized Cross-Correlation score.</p>
-<p>This method works on 2D and 3D video inputs.</p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="stabilize2p.metrics.cont_dice_scores">
-<span class="sig-prename descclassname"><span class="pre">stabilize2p.metrics.</span></span><span class="sig-name descname"><span class="pre">cont_dice_scores</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">numpy.ndarray</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="_modules/stabilize2p/metrics.html#cont_dice_scores"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.metrics.cont_dice_scores" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="stabilize2p.metrics.failure_score">
-<span class="sig-prename descclassname"><span class="pre">stabilize2p.metrics.</span></span><span class="sig-name descname"><span class="pre">failure_score</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">numpy.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frame_shape</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">numpy.ndarray</span></span></span><a class="reference internal" href="_modules/stabilize2p/metrics.html#failure_score"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.metrics.failure_score" title="Permalink to this definition">¶</a></dt>
-<dd><p>Return percentage of frames considered ‘failed’ due to remoteness to the center.</p>
-<p>An important assumption this score makes is that the mean over the centers of mass of
-the input <code class="docutils literal notranslate"><span class="pre">video</span></code> is suposed to represent a proper center were all axons are
-visible.</p>
-</dd></dl>
-
+  <section id="metrics-module">
+<h1>metrics module<a class="headerlink" href="#metrics-module" title="Permalink to this headline">¶</a></h1>
 </section>
 
 
@@ -127,6 +60,7 @@ visible.</p>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">metrics module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="utils.html">utils module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="register.html">register module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="threshold.html">threshold module</a></li>
 </ul>
 </li>
 </ul>
@@ -168,7 +102,7 @@ visible.</p>
       &copy;2021, Adrian Sager La Ganga.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.2.0</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.3.1</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |
