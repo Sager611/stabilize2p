@@ -30,13 +30,14 @@ from sklearn.utils import gen_batches
 from pystackreg import StackReg
 
 from . import register
+from . import threshold
 
 _LOGGER = logging.getLogger('stabilize2p')
 
 
 def vxm_preprocessing(x, affine_transform=True, params=None):
     # "remove' background
-    th = estimate_background_threshold(x) if params is None else params['bg_thresh'] 
+    th = threshold.watershed(x) if params is None else params['bg_thresh'] 
     np.clip(x, th, None, out=x)
     x = x - th
 
@@ -186,46 +187,6 @@ def vxm_data_generator(file_pool,
                 outputs = [fixed, zero_phi]
 
                 yield (inputs, outputs)
-
-
-def estimate_background_threshold(image: np.ndarray, num_peaks: int = 2, bins: int = 400) -> float:
-    """Uses the 1D watershed algorithm to estimate the pixel value where background becomes foreground.
-
-    Parameters
-    ----------
-    image : array
-        2D image
-    num_peaks : int, optional
-        a-priori number of peaks that the pixel value histogram of ``image`` has
-    bins : int, optional
-        number of bins to use for the pixel value histogram of ``image``
-    """
-    pix_hist, bns = np.histogram(image.ravel(), bins=bins)
-    # we assume by default num_peaks=2, that is, we have a bimodal pixel value histogram
-    coords = peak_local_max(pix_hist, num_peaks=num_peaks)
-    hig = pix_hist.argmax()
-    # assert hig == coords[0], f'{hig=} | {coords=}'
-
-    # if the distribution is uni-modal (in which case we assume that the 2nd predicted peak is small)
-    if pix_hist[coords[1]]/pix_hist[coords[0]] < 0.1:
-        threshold_i = int(coords[0])
-        _LOGGER.warning('pixel histogram is uni-modal, estimated threshold may not be accurate.')
-    else:
-        mask = np.zeros(pix_hist.shape, dtype=bool)
-        mask[tuple(coords.T)] = True
-        markers, _ = ndi.label(mask)
-
-        ws = watershed(-pix_hist, markers)
-        idx = np.where(ws[1:] > ws[:-1])[0]
-
-        coords = np.sort(coords.ravel())
-        if idx.size == 0:
-            threshold_i = int(coords[0])
-        else:
-            # threshold is between the two first local maxima
-            assert np.sum((idx >= coords[0]) & (idx <= coords[1])) > 0, f'{coords=} | {idx=}'
-            threshold_i = idx[(idx >= coords[0]) & (idx <= coords[1])].min()
-    return bns[threshold_i:(threshold_i+1)].mean()
 
 
 def get_centers(video: np.ndarray) -> np.ndarray:
