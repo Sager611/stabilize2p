@@ -120,7 +120,7 @@ def EMD(video: np.ndarray, n_samples: int = 50, metric: str = 'euclidean', feat_
         ]
         scores = [f.result() for f in futures]
 
-    return np.max(scores)
+    return np.mean(scores)
 
 
 def NCC(video: np.ndarray) -> float:

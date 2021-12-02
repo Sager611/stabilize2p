@@ -45,7 +45,7 @@ def vxm_preprocessing(x, affine_tranform=True):
         # center-of-mass transform
         register.com_transform(x, inplace=True)
         t2 = time.perf_counter()
-        _LOGGER.info(f'Applied affine transform to {x.shape[0]} frames at a rate of {x.shape[0]/(t2-t1):.0f} frames/s')
+        _LOGGER.debug(f'Applied affine transform to {x.shape[0]} frames at a rate of {x.shape[0]/(t2-t1):.0f} frames/s')
 
     return x, (low, hig)
 

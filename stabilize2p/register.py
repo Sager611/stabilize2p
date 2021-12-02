@@ -8,15 +8,21 @@ import time
 from concurrent.futures.thread import ThreadPoolExecutor
 
 import numpy as np
+from pystackreg import StackReg
 from scipy import ndimage as ndi
 
 from . import utils
 
 
+def pysreg_transform(video: np.ndarray, method=StackReg.TRANSLATION) -> np.ndarray:
+    """Apply :class:`pystackreg.StackReg` to ``video``."""
+    return StackReg(method).register_transform_stack(video, reference='first')
+
+
 def com_transform(video: np.ndarray, inplace=False, downsample=2) -> np.ndarray:
     """Fast translation alignment of frames based on the Center of Mass.
 
-    >30 times faster than pystackreg's translation transform.
+    ~40 times faster than pystackreg's translation transform.
 
     Parameters
     ----------
@@ -40,7 +46,7 @@ def com_transform(video: np.ndarray, inplace=False, downsample=2) -> np.ndarray:
     # we need to get the center of mass of the _features_,
     # the background should not have any influence
     sparse = video[:, ::downsample, ::downsample]
-    th = utils.estimate_background_threshold(sparse)
+    th = utils.estimate_background_threshold(video[0])
     cs = utils.get_centers(sparse - th)
     mean_center = cs.mean(axis=0)
     shifts = (mean_center - cs) * downsample

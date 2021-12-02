@@ -64,6 +64,7 @@ if args.gpu:
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 import json
+import logging
 from collections import defaultdict
 
 import cv2
@@ -92,6 +93,9 @@ plt.rc('xtick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
 plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
 plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
 plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
+
+# reduce logging in the package to only show errors
+logging.getLogger('stabilizer2p').setLevel(logging.ERROR)
 
 
 def frame_gen(video, scores=None, lt=0.9):
@@ -217,6 +221,7 @@ vxm_model.save_weights(save_filename.format(epoch=args.epochs))
 
 # plot history
 
+import pickle
 import matplotlib.pyplot as plt
 from itertools import cycle
 
@@ -241,6 +246,11 @@ def plot_history(hist, loss_names=['loss', 'val_loss']):
     plt.title('Training loss')
     plt.legend()
     plt.savefig(args.out_dir + '/history.svg')
+
+
+# save to file
+with open(args.out_dir + '/history.pkl', 'wb') as file:
+    pickle.dump({'epoch': hist.epoch, 'history': hist.history}, file)
 
 plot_history(hist)
 print('plotted history')
