@@ -7,7 +7,7 @@
 import logging
 
 import cv2
-import skimage
+import skimage.segmentation
 import numpy as np
 from scipy import ndimage as ndi
 from skimage.feature import peak_local_max
