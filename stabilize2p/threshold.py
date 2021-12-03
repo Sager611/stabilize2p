@@ -24,7 +24,7 @@ def otsu(image: np.ndarray) -> float:
     """
     # normalize image to use in cv2.threshold
     low, hig = image.min(), image.max()
-    image = (image - low) / (hig - low) * 256
+    image = (image - low) / (hig - low) * 255
     image = image.astype(np.uint8)
 
     # Otsu improves with a Gaussian blur
@@ -32,7 +32,7 @@ def otsu(image: np.ndarray) -> float:
     blur = cv2.GaussianBlur(image, (k, k), 0)
 
     otsu, _ = cv2.threshold(blur, 0, 255, cv2.THRESH_OTSU)
-    return (otsu / 256) * (hig - low) + low
+    return (otsu / 255) * (hig - low) + low
 
 
 def triangle(image: np.ndarray) -> float:
@@ -44,11 +44,11 @@ def triangle(image: np.ndarray) -> float:
     """
     # normalize image to use in cv2.threshold
     low, hig = image.min(), image.max()
-    image = (image - low) / (hig - low) * 256
+    image = (image - low) / (hig - low) * 255
     image = image.astype(np.uint8)
 
-    otsu, _ = cv2.threshold(image, 0, 255, cv2.THRESH_TRIANGLE)
-    return (otsu / 256) * (hig - low) + low
+    thresh, _ = cv2.threshold(image, 0, 255, cv2.THRESH_TRIANGLE)
+    return (thresh / 255) * (hig - low) + low
 
 
 def watershed(image: np.ndarray, num_peaks: int = 2, bins: int = 800) -> float:
