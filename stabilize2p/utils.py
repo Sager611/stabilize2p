@@ -152,11 +152,11 @@ def vxm_data_generator(file_pool,
     if training:
         while True:
             file_i = np.random.choice(len(file_pool))
+            key = keys[file_i]
             if key is None:
                 nb_frames = len(tiff.TiffFile(file_pool[file_i]).pages)
                 key = np.arange(nb_frames)
             else:
-                key = keys[file_i]
                 nb_frames = key.size
 
             idx = np.random.randint(0, nb_frames, size=batch_size)

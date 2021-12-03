@@ -57,4 +57,4 @@ Scripts:
 -  register.py: Voxelmorph's
    `register.py <https://github.com/voxelmorph/voxelmorph/blob/dev/scripts/tf/register.py>`__.
    Used to load a model and register an image.
--  train-voxelmorph.py: train a Voxelmorph model using a pool of files. Check ``train-voxelmorph.py --help`` or more information.
+-  train-voxelmorph.py: train a Voxelmorph model using a pool of files. Check ``train-voxelmorph.py --help`` for more information.
