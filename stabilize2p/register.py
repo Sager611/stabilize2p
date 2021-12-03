@@ -56,9 +56,8 @@ def com_transform(video: np.ndarray, inplace=False, downsample=2, target=None) -
     # we need to get the center of mass of the _features_,
     # the background should not have any influence
     sparse = video[:, ::downsample, ::downsample]
-    th = utils.estimate_background_threshold(video[0])
-    cs = utils.get_centers(sparse - th)
-    target = cs.mean(axis=0) if target is None else target / 2
+    cs = utils.get_centers(sparse)
+    target = cs.mean(axis=0) if target is None else target / downsample
     shifts = (target - cs) * downsample
     # scipy requires a (row, column) format
     shifts = shifts[:, [1, 0]]
@@ -79,6 +78,7 @@ def com_transform(video: np.ndarray, inplace=False, downsample=2, target=None) -
             ]
             res = np.array([f.result() for f in futures])
             return res
+
 
 def ECC_transform(video: np.ndarray, nb_iters=5, eps=1e-6, ref=None) -> np.ndarray:
     """Affine alignment using :func:`cv2.findTransformECC`.
