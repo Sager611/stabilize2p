@@ -742,6 +742,38 @@ def plot_frame_values_3d(frame: np.ndarray, title: str = r"Frame values", pool: 
     plt.show()
 
 
+def plot_centers(image, radius=None, s=5, ax=None):  
+    if radius is None:
+        radius = 0.1 * min(image.shape[1:])
+        print(f'{radius=}')
+
+    # calculate centers
+    centers = get_centers(image)
+
+    m_centers = centers.mean(axis=0)
+    s_centers = centers.std(axis=0)
+    print(f'x: {m_centers[0]:.2f} + {s_centers[0]:.2f}')
+    print(f'y: {m_centers[1]:.2f} + {s_centers[1]:.2f}')
+
+    target = m_centers
+    
+    ax = plt.subplot(111) if ax is None else ax
+
+    circ = plt.Circle(m_centers, radius, color='r', alpha=.25)
+    ax.add_patch(circ)
+
+    ax.scatter(centers[:, 0], centers[:, 1], s=s, alpha=0.5)
+    ax.plot(target[0], target[1], 'ko')
+    
+    (lx, hx), (ly, hy) = ax.get_xlim(), ax.get_ylim()
+    dmax = max(hx-lx, hy-ly)
+    hx, hy = lx+dmax, ly+dmax
+    lx, ly = lx - (dmax - 2*radius), ly - (dmax - 2*radius)
+    ax.set_xlim(lx, hx); ax.set_ylim(ly, hy);
+    
+    plt.title(r'Centers of mass')
+
+
 def get_strategy(strategy: str = 'default'):
     """Load and return the specified Tensorflow's strategy.
     

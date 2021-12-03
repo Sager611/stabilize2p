@@ -40,7 +40,7 @@
 <span class="kn">import</span> <span class="nn">logging</span>
 
 <span class="kn">import</span> <span class="nn">cv2</span>
-<span class="kn">import</span> <span class="nn">skimage</span>
+<span class="kn">import</span> <span class="nn">skimage.segmentation</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">ndimage</span> <span class="k">as</span> <span class="n">ndi</span>
 <span class="kn">from</span> <span class="nn">skimage.feature</span> <span class="kn">import</span> <span class="n">peak_local_max</span>
@@ -51,13 +51,13 @@
 <div class="viewcode-block" id="otsu"><a class="viewcode-back" href="../../threshold.html#stabilize2p.threshold.otsu">[docs]</a><span class="k">def</span> <span class="nf">otsu</span><span class="p">(</span><span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;Calculate Otsu threshold.</span>
 <span class="sd">    </span>
-<span class="sd">    .. note::</span>
+<span class="sd">    .. seealso::</span>
 <span class="sd">    </span>
 <span class="sd">        Otsu, Nobuyuki. “A threshold selection method from gray level histograms.” *IEEE Transactions on Systems, Man, and Cybernetics* 9 (1979): 62-66.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># normalize image to use in cv2.threshold</span>
     <span class="n">low</span><span class="p">,</span> <span class="n">hig</span> <span class="o">=</span> <span class="n">image</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">image</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
-    <span class="n">image</span> <span class="o">=</span> <span class="p">(</span><span class="n">image</span> <span class="o">-</span> <span class="n">low</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">hig</span> <span class="o">-</span> <span class="n">low</span><span class="p">)</span> <span class="o">*</span> <span class="mi">256</span>
+    <span class="n">image</span> <span class="o">=</span> <span class="p">(</span><span class="n">image</span> <span class="o">-</span> <span class="n">low</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">hig</span> <span class="o">-</span> <span class="n">low</span><span class="p">)</span> <span class="o">*</span> <span class="mi">255</span>
     <span class="n">image</span> <span class="o">=</span> <span class="n">image</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>
 
     <span class="c1"># Otsu improves with a Gaussian blur</span>
@@ -65,23 +65,23 @@
     <span class="n">blur</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">GaussianBlur</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">k</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span>
 
     <span class="n">otsu</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">threshold</span><span class="p">(</span><span class="n">blur</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">THRESH_OTSU</span><span class="p">)</span>
-    <span class="k">return</span> <span class="p">(</span><span class="n">otsu</span> <span class="o">/</span> <span class="mi">256</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">hig</span> <span class="o">-</span> <span class="n">low</span><span class="p">)</span> <span class="o">+</span> <span class="n">low</span></div>
+    <span class="k">return</span> <span class="p">(</span><span class="n">otsu</span> <span class="o">/</span> <span class="mi">255</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">hig</span> <span class="o">-</span> <span class="n">low</span><span class="p">)</span> <span class="o">+</span> <span class="n">low</span></div>
 
 
 <div class="viewcode-block" id="triangle"><a class="viewcode-back" href="../../threshold.html#stabilize2p.threshold.triangle">[docs]</a><span class="k">def</span> <span class="nf">triangle</span><span class="p">(</span><span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;Calculate threshold using OpenCV&#39;s triangle method.</span>
 
-<span class="sd">    .. note::</span>
+<span class="sd">    .. seealso::</span>
 
 <span class="sd">        Zack, G W et al. “Automatic measurement of sister chromatid exchange frequency.” *The journal of histochemistry and cytochemistry : official journal of the Histochemistry Society* vol. 25,7 (1977): 741-53. doi:10.1177/25.7.70454</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># normalize image to use in cv2.threshold</span>
     <span class="n">low</span><span class="p">,</span> <span class="n">hig</span> <span class="o">=</span> <span class="n">image</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">image</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
-    <span class="n">image</span> <span class="o">=</span> <span class="p">(</span><span class="n">image</span> <span class="o">-</span> <span class="n">low</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">hig</span> <span class="o">-</span> <span class="n">low</span><span class="p">)</span> <span class="o">*</span> <span class="mi">256</span>
+    <span class="n">image</span> <span class="o">=</span> <span class="p">(</span><span class="n">image</span> <span class="o">-</span> <span class="n">low</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">hig</span> <span class="o">-</span> <span class="n">low</span><span class="p">)</span> <span class="o">*</span> <span class="mi">255</span>
     <span class="n">image</span> <span class="o">=</span> <span class="n">image</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>
 
-    <span class="n">otsu</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">threshold</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">THRESH_TRIANGLE</span><span class="p">)</span>
-    <span class="k">return</span> <span class="p">(</span><span class="n">otsu</span> <span class="o">/</span> <span class="mi">256</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">hig</span> <span class="o">-</span> <span class="n">low</span><span class="p">)</span> <span class="o">+</span> <span class="n">low</span></div>
+    <span class="n">thresh</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">threshold</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">255</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">THRESH_TRIANGLE</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">thresh</span> <span class="o">/</span> <span class="mi">255</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">hig</span> <span class="o">-</span> <span class="n">low</span><span class="p">)</span> <span class="o">+</span> <span class="n">low</span></div>
 
 
 <div class="viewcode-block" id="watershed"><a class="viewcode-back" href="../../threshold.html#stabilize2p.threshold.watershed">[docs]</a><span class="k">def</span> <span class="nf">watershed</span><span class="p">(</span><span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">num_peaks</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span> <span class="n">bins</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">800</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>

@@ -4,7 +4,7 @@
 
 """
 
-from typing import Optional
+from typing import Optional, Union
 from concurrent.futures.thread import ThreadPoolExecutor
 
 import numpy as np
@@ -16,7 +16,7 @@ from scipy.optimize import linear_sum_assignment
 from sklearn.neighbors import NearestNeighbors
 from sklearn.utils import gen_batches
 
-from .utils import estimate_background_threshold, get_centers
+from .utils import get_centers
 
 
 def EMD(video: np.ndarray, n_samples: int = 50, metric: str = 'euclidean', feat_frac: float = 0.2) -> float:
@@ -124,7 +124,7 @@ def EMD(video: np.ndarray, n_samples: int = 50, metric: str = 'euclidean', feat_
     return np.mean(scores)
 
 
-def NCC(video: np.ndarray) -> float:
+def NCC(video: np.ndarray, ref='previous', return_all=False) -> Union[float, np.ndarray]:
     """Normalized Cross-Correlation score.
 
     This method works on 2D and 3D video inputs.
@@ -135,12 +135,14 @@ def NCC(video: np.ndarray) -> float:
     for sl in gen_batches(video.shape[0], 128):
         # vxm NCC's assumes Ii, Ji are sized [batch_size, *vol_shape, nb_feats]
         frames = tf.convert_to_tensor(video[sl, ..., np.newaxis], dtype=np.float32)
-        print(sl)
-        res += [vxm_ncc.loss(frames[1:], frames[:-1])]
-    return np.mean(res)
+        res += [vxm_ncc.loss(frames[1:], frames[:-1]).numpy().ravel()]
+    if return_all:
+        return np.concatenate(res)
+    else:
+        return np.mean(res)
 
 
-def MSE(video: np.ndarray, ref: str = 'previous') -> float:
+def MSE(video: np.ndarray, ref: str = 'previous', return_all=False) -> Union[float, np.ndarray]:
     """Return MSE score with respect to some reference image.
     
     This method is tested on 2D videos, but should work on 3D videos as well.
@@ -149,16 +151,17 @@ def MSE(video: np.ndarray, ref: str = 'previous') -> float:
     ----------
     video : array
         Contains the video information
-    ref : string
+    ref : string, optional
         Reference frame/image to use as approx for round-truth.
         Either: previous, median or mean
         Default is 'previous'
+    return_all : bool, optional
+        whether to return all MSE values for all frames or average the result
+        accross frames.
+
+        Defaults to averaging accross frames
     """
     nb_frame_pixels = np.prod(video.shape[1:])
-    
-    # pre-processing
-    video = (video - video.mean())
-    # video = (video - video.mean(axis=(1, 2))[:, np.newaxis, np.newaxis]) / (1e-6 + video.std(axis=(1, 2))[:, np.newaxis, np.newaxis])
     
     if ref == 'previous':
         I = video[:-1].reshape((-1, nb_frame_pixels))
@@ -173,14 +176,18 @@ def MSE(video: np.ndarray, ref: str = 'previous') -> float:
         J = video[1:].reshape((-1, nb_frame_pixels))
     else:
         J = video.reshape((-1, nb_frame_pixels))
-    
-    return mean_squared_error(I, J, multioutput='uniform_average')
+
+    if return_all:
+        return np.mean((J-I)**2, axis=1)
+    else:
+        return mean_squared_error(I, J, multioutput='uniform_average')
 
 
-def failure_score(video: np.ndarray,
-                  frame_shape: Optional[tuple] = None,
-                  threshold: Optional[int] = None) -> np.ndarray:
-    """Return percentage of frames considered 'failed' due to remoteness to the center.
+def COM(video: np.ndarray,
+        frame_shape: Optional[tuple] = None,
+        threshold: Optional[int] = None,
+        return_all=False) -> np.ndarray:
+    """Return percentage of frames considered 'failed' due to remoteness to the Center of Mass.
 
     An important assumption this score makes is that the mean over the centers of mass of
     the input ``video`` is suposed to represent a proper center were all axons are
@@ -189,20 +196,17 @@ def failure_score(video: np.ndarray,
     if frame_shape is None:
         frame_shape = (video.shape[1], video.shape[2])
     if threshold is None:
-        threshold = 0.01 * min(*frame_shape)
-
-    # pre-processing
-    bkg = estimate_background_threshold(video[0])
-    # makes a copy of video, so we don't modify the argument
-    video = np.clip(video, bkg, None)
-    video = video - bkg
+        threshold = 0.1 * min(frame_shape)
 
     centers = get_centers(video)
 
     # consider a frame wrong if the axis is > 10% off the mean
     m_center = centers.mean(axis=0)
     failures = np.sum((centers - m_center)**2, axis=1) > threshold**2
-    return np.sum(failures) / centers.shape[0], failures
+    if return_all:
+        return failures
+    else:
+        return np.sum(failures) / centers.shape[0]
 
 
 # def get_correlation_scores(video: np.ndarray) -> np.ndarray:

@@ -68,7 +68,7 @@
 
 <div class="viewcode-block" id="vxm_preprocessing"><a class="viewcode-back" href="../../utils.html#stabilize2p.utils.vxm_preprocessing">[docs]</a><span class="k">def</span> <span class="nf">vxm_preprocessing</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">affine_transform</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
     <span class="c1"># &quot;remove&#39; background</span>
-    <span class="n">th</span> <span class="o">=</span> <span class="n">threshold</span><span class="o">.</span><span class="n">watershed</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">if</span> <span class="n">params</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;bg_thresh&#39;</span><span class="p">]</span> 
+    <span class="n">th</span> <span class="o">=</span> <span class="n">threshold</span><span class="o">.</span><span class="n">triangle</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">if</span> <span class="n">params</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;bg_thresh&#39;</span><span class="p">]</span> 
     <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">th</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">x</span><span class="p">)</span>
     <span class="n">x</span> <span class="o">=</span> <span class="n">x</span> <span class="o">-</span> <span class="n">th</span>
 
@@ -80,11 +80,16 @@
     <span class="c1"># whether to perform an affine transform as a pre-step</span>
     <span class="k">if</span> <span class="n">affine_transform</span><span class="p">:</span>
         <span class="n">t1</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
-        <span class="c1"># center-of-mass transform</span>
-        <span class="c1"># target = np.array(x.shape[-1:0:-1])/2 if params is None else params[&#39;target&#39;]</span>
-        <span class="c1"># register.com_transform(x, inplace=True, target=target)</span>
-        <span class="n">ref</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">params</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;ref&#39;</span><span class="p">]</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="n">register</span><span class="o">.</span><span class="n">ECC_transform</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="n">ref</span><span class="p">)</span>
+
+        <span class="c1"># if calling from vxm_data_generator, params is never None here</span>
+        <span class="n">ref</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="n">params</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;ref&#39;</span><span class="p">]</span>
+        <span class="c1"># scipy returns in (y, x) format, so we have to swap them</span>
+        <span class="n">target</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">ndi</span><span class="o">.</span><span class="n">center_of_mass</span><span class="p">(</span><span class="n">ref</span><span class="p">))[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="c1"># best and fastest affine registration is to remove outliers with CoM</span>
+        <span class="c1"># and then apply few ECC steps</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">register</span><span class="o">.</span><span class="n">com_transform</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="n">target</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">register</span><span class="o">.</span><span class="n">ECC_transform</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="n">ref</span><span class="p">,</span> <span class="n">nb_iters</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+
         <span class="n">t2</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
         <span class="n">_LOGGER</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Applied affine transform to </span><span class="si">{</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s1"> frames at a rate of </span><span class="si">{</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="p">(</span><span class="n">t2</span><span class="o">-</span><span class="n">t1</span><span class="p">)</span><span class="si">:</span><span class="s1">.0f</span><span class="si">}</span><span class="s1"> frames/s&#39;</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
@@ -97,7 +102,8 @@
                        <span class="n">batch_size</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
                        <span class="n">training</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                        <span class="n">affine_transform</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                       <span class="n">ref</span><span class="o">=</span><span class="s1">&#39;mean&#39;</span><span class="p">):</span>
+                       <span class="n">ref</span><span class="o">=</span><span class="s1">&#39;mean&#39;</span><span class="p">,</span>
+                       <span class="n">keys</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Generator that takes in data of size [N, H, W], and yields data for</span>
 <span class="sd">    our custom vxm model. Note that we need to provide numpy data for each</span>
@@ -112,23 +118,35 @@
 <span class="sd">        pool of filepaths (can be relative) in TIFF format to gather data from.</span>
 <span class="sd">        In training mode, for each batch, files are chosen uniformly at random and </span>
 <span class="sd">        then the batch is generated by taking a random subset of frames of size ``batch_size``</span>
-<span class="sd">    batch_size : int</span>
-<span class="sd">    training : bool</span>
+<span class="sd">    batch_size : int, optional</span>
+<span class="sd">    training : bool, optional</span>
 <span class="sd">        whether to activate training mode. Deactivating training mode means</span>
 <span class="sd">        batches are generated in order, from the first file to the last</span>
-<span class="sd">    affine_transform : bool</span>
+<span class="sd">    affine_transform : bool, optional</span>
 <span class="sd">        whether to perform an affine transform as a pre-step for every batch using</span>
 <span class="sd">        :class:`pystackreg.StackReg`</span>
-<span class="sd">    ref : string</span>
+<span class="sd">    ref : string, optional</span>
 <span class="sd">        what image to use as the reference fixed image. Can be:</span>
 <span class="sd">        - &#39;first&#39;: use the first frame of the video file</span>
 <span class="sd">        - &#39;last&#39;: use the last frame of the video file</span>
 <span class="sd">        - &#39;mean&#39;: use the mean over frames of the video file</span>
 <span class="sd">        - &#39;median&#39;: use the median over frames of the video file</span>
 <span class="sd">        Defaults to &#39;mean&#39;</span>
+<span class="sd">    keys : list, optional</span>
+<span class="sd">        list of sequences that indicate which frames to take for each file by their index.</span>
+<span class="sd">        You can specify some keys as None to use all frames, for ex.: ``keys = [range(200), None]``</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">file_pool</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">str</span><span class="p">:</span>
         <span class="n">file_pool</span> <span class="o">=</span> <span class="p">[</span><span class="n">file_pool</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">keys</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">keys</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">file_pool</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">keys</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">keys</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">file_pool</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;``keys`` and ``file_pool`` must have the same length. &#39;</span>
+                         <span class="sa">f</span><span class="s1">&#39; </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">keys</span><span class="p">)</span><span class="si">=}</span><span class="s1"> ; </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">file_pool</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
 
     <span class="c1"># preliminary sizing</span>
     <span class="n">vol_shape</span> <span class="o">=</span> <span class="n">tiff</span><span class="o">.</span><span class="n">imread</span><span class="p">(</span><span class="n">file_pool</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">key</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>  <span class="c1"># extract data shape</span>
@@ -153,8 +171,8 @@
     <span class="k">else</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;``ref`` arg must be: first, last, mean or median. Provided: </span><span class="si">{</span><span class="n">ref</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
 
-    <span class="k">for</span> <span class="n">file_path</span> <span class="ow">in</span> <span class="n">file_pool</span><span class="p">:</span>
-        <span class="n">video</span> <span class="o">=</span> <span class="n">tiff</span><span class="o">.</span><span class="n">imread</span><span class="p">(</span><span class="n">file_path</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="nb">range</span><span class="p">(</span><span class="mi">200</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">file_path</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">keys</span><span class="p">,</span> <span class="n">file_pool</span><span class="p">):</span>
+        <span class="n">video</span> <span class="o">=</span> <span class="n">tiff</span><span class="o">.</span><span class="n">imread</span><span class="p">(</span><span class="n">file_path</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">)</span>
         <span class="n">video</span><span class="p">,</span> <span class="n">params</span> <span class="o">=</span> <span class="n">vxm_preprocessing</span><span class="p">(</span><span class="n">video</span><span class="p">,</span> <span class="n">affine_transform</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
         <span class="n">ref_</span> <span class="o">=</span> <span class="n">_extract_ref</span><span class="p">(</span><span class="n">video</span><span class="p">)</span>
@@ -167,10 +185,15 @@
     <span class="k">if</span> <span class="n">training</span><span class="p">:</span>
         <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
             <span class="n">file_i</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">file_pool</span><span class="p">))</span>
-            <span class="n">nb_frames</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">tiff</span><span class="o">.</span><span class="n">TiffFile</span><span class="p">(</span><span class="n">file_pool</span><span class="p">[</span><span class="n">file_i</span><span class="p">])</span><span class="o">.</span><span class="n">pages</span><span class="p">)</span>
+            <span class="n">key</span> <span class="o">=</span> <span class="n">keys</span><span class="p">[</span><span class="n">file_i</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">nb_frames</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">tiff</span><span class="o">.</span><span class="n">TiffFile</span><span class="p">(</span><span class="n">file_pool</span><span class="p">[</span><span class="n">file_i</span><span class="p">])</span><span class="o">.</span><span class="n">pages</span><span class="p">)</span>
+                <span class="n">key</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">nb_frames</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">nb_frames</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="n">size</span>
 
-            <span class="n">idx1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">nb_frames</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">)</span>
-            <span class="n">x_data</span> <span class="o">=</span> <span class="n">tiff</span><span class="o">.</span><span class="n">imread</span><span class="p">(</span><span class="n">file_pool</span><span class="p">[</span><span class="n">file_i</span><span class="p">],</span> <span class="n">key</span><span class="o">=</span><span class="n">idx1</span><span class="p">)</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">nb_frames</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">)</span>
+            <span class="n">x_data</span> <span class="o">=</span> <span class="n">tiff</span><span class="o">.</span><span class="n">imread</span><span class="p">(</span><span class="n">file_pool</span><span class="p">[</span><span class="n">file_i</span><span class="p">],</span> <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
             <span class="n">x_data</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">vxm_preprocessing</span><span class="p">(</span>
                 <span class="n">x_data</span><span class="p">,</span> 
                 <span class="n">affine_transform</span><span class="o">=</span><span class="n">affine_transform</span><span class="p">,</span>
@@ -193,10 +216,15 @@
 
             <span class="k">yield</span> <span class="p">(</span><span class="n">inputs</span><span class="p">,</span> <span class="n">outputs</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="k">for</span> <span class="n">file_i</span><span class="p">,</span> <span class="n">file_path</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">file_pool</span><span class="p">):</span>
-            <span class="n">nb_frames</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">tiff</span><span class="o">.</span><span class="n">TiffFile</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span><span class="o">.</span><span class="n">pages</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">file_i</span><span class="p">,</span> <span class="p">(</span><span class="n">file_path</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">file_pool</span><span class="p">,</span> <span class="n">keys</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">nb_frames</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">tiff</span><span class="o">.</span><span class="n">TiffFile</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span><span class="o">.</span><span class="n">pages</span><span class="p">)</span>
+                <span class="n">key</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">nb_frames</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">nb_frames</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="n">size</span>
+
             <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">gen_batches</span><span class="p">(</span><span class="n">nb_frames</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">):</span>
-                <span class="n">x_data</span> <span class="o">=</span> <span class="n">tiff</span><span class="o">.</span><span class="n">imread</span><span class="p">(</span><span class="n">file_path</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">idx</span><span class="p">)</span>
+                <span class="n">x_data</span> <span class="o">=</span> <span class="n">tiff</span><span class="o">.</span><span class="n">imread</span><span class="p">(</span><span class="n">file_path</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
                 <span class="n">x_data</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">vxm_preprocessing</span><span class="p">(</span>
                     <span class="n">x_data</span><span class="p">,</span> 
                     <span class="n">affine_transform</span><span class="o">=</span><span class="n">affine_transform</span><span class="p">,</span>

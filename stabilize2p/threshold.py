@@ -18,7 +18,7 @@ _LOGGER = logging.getLogger('stabilize2p')
 def otsu(image: np.ndarray) -> float:
     """Calculate Otsu threshold.
     
-    .. note::
+    .. seealso::
     
         Otsu, Nobuyuki. “A threshold selection method from gray level histograms.” *IEEE Transactions on Systems, Man, and Cybernetics* 9 (1979): 62-66.
     """
@@ -38,7 +38,7 @@ def otsu(image: np.ndarray) -> float:
 def triangle(image: np.ndarray) -> float:
     """Calculate threshold using OpenCV's triangle method.
 
-    .. note::
+    .. seealso::
 
         Zack, G W et al. “Automatic measurement of sister chromatid exchange frequency.” *The journal of histochemistry and cytochemistry : official journal of the Histochemistry Society* vol. 25,7 (1977): 741-53. doi:10.1177/25.7.70454
     """
