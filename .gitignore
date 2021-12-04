@@ -18,6 +18,7 @@ notebooks/**
 # we allow scripts and their configs, but not their outputs
 bin/*
 !bin/*.py 
+!bin/*.sh 
 !bin/*.json
 !bin/raw2tiff
 !bin/pystackreg
