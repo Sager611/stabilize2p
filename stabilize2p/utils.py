@@ -34,7 +34,7 @@ _LOGGER = logging.getLogger('stabilize2p')
 
 
 def vxm_preprocessing(x, affine_transform=True, params=None):
-    # "remove' background
+    # "remove' background. Threshold calculation should be ~1600 frames/s
     th = threshold.triangle(x) if params is None else params['bg_thresh'] 
     np.clip(x, th, None, out=x)
     x = x - th
@@ -90,8 +90,7 @@ def vxm_data_generator(file_pool,
         whether to activate training mode. Deactivating training mode means
         batches are generated in order, from the first file to the last
     affine_transform : bool, optional
-        whether to perform an affine transform as a pre-step for every batch using
-        :class:`pystackreg.StackReg`
+        whether to perform an affine transform as a pre-step for every batch
     ref : string, optional
         what image to use as the reference fixed image. Can be:
         - 'first': use the first frame of the video file

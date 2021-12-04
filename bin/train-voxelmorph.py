@@ -33,8 +33,8 @@ parser.add_argument('--steps-per-epoch', type=int, default=100,
                     help='steps per epoch (default: 100)')
 parser.add_argument('--batch-size', type=int, default=8,
                     help='training batch size, aka number of frames (default: 8)')
-parser.add_argument('--l2', type=float, default=1e-4,
-                    help='l2 regularization on the network weights (default: 1e-4)')
+parser.add_argument('--l2', type=float, default=0,
+                    help='l2 regularization on the network weights (default: 0)')
 parser.add_argument('--load-weights', help='optional weights file to initialize with')
 parser.add_argument('--initial-epoch', type=int, default=0,
                     help='initial epoch number (default: 0)')
@@ -69,6 +69,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 # ## Imports
 
+import time
 import json
 import logging
 from collections import defaultdict
@@ -152,23 +153,36 @@ dec_nf = args.dec if args.dec else [128, 128, 32, 32, 32, 16, 16]
 save_filename = args.model_dir + '/vxm_drosophila_2d_{epoch:04d}.h5'
 
 
+class L2Loss():
+    def __init__(self, l2, kernel):
+        self.l2 = l2
+        self.kernel = kernel
+
+    def __call__(self):
+        return self.l2(self.kernel)
+
+
 def train():
     # build model using VxmDense
     with strategy.scope():
         vxm_model = vxm.networks.VxmDense(in_shape, [enc_nf, dec_nf], int_steps=0)
 
-    # After loading our pre-trained model, we are going loop over all of its layers.
-    # For each layer, we check if it supports regularization, and if it does, we add it
-    if args.l2:
-        regularizer = tf.keras.regularizers.l2(args.l2)
-        for layer in vxm_model.layers:
-            for attr in ['kernel_regularizer']:
-                if hasattr(layer, attr):
-                    setattr(layer, attr, regularizer)
-
     # load initial weights (if provided)
     if args.load_weights:
         vxm_model.load_weights(args.load_weights)
+
+    # After loading our pre-trained model, we are going loop over all of its layers.
+    # For each layer, we check if it supports regularization, and if it does, we add it
+    if args.l2:
+        for li, layer in enumerate(vxm_model.layers):
+            for attr in ['kernel_regularizer']:
+                if hasattr(layer, attr) and hasattr(layer, 'kernel'):
+                    l2 = tf.keras.regularizers.l2(args.l2)
+                    setattr(layer, attr, l2)
+                    layer.add_loss(L2Loss(l2, layer.kernel))
+    
+        print('losses:', vxm_model.losses)
+        assert len(vxm_model.losses) > 0, 'Could not apply l2 regularization'
 
     vxm_model.summary(line_length = 180)
 
@@ -267,6 +281,8 @@ if not args.predict:
 
 # ## Validation
 
+t1 = time.perf_counter()
+
 # build model using VxmDense
 with strategy.scope():
     vxm_model = vxm.networks.VxmDense(in_shape, [enc_nf, dec_nf], int_steps=0)
@@ -279,6 +295,7 @@ print(f'loaded model from: {path}')
 # predict validation-set
 val_generator = vxm_data_generator(config['validation_pool'][0], batch_size=args.batch_size, training=False)
 
+# TODO: concatenation is not a good idea for RAM usage!
 val_pred = []
 for (val_input, _) in val_generator:
     val_pred += [vxm_model.predict(val_input, verbose=2)]
@@ -286,6 +303,12 @@ val_pred = [
     np.concatenate([a[0] for a in val_pred], axis=0),
     np.concatenate([a[1] for a in val_pred], axis=0)
 ]
+# can't do this or we run out of memory!
+# val_pred = vxm_model.predict(val_generator)
+
+t2 = time.perf_counter()
+print(f'Predicted validation in {t2-t1:.2f}s | '
+      f'{val_pred[0].shape[0]/(t2-t1):,.0f} frames/s | {(t2-t1)/val_pred[0].shape[0]:.4g} s/frame')
 
 np.save(args.out_dir + '/validation-video', val_pred[0])
 np.save(args.out_dir + '/validation-flow', val_pred[1])

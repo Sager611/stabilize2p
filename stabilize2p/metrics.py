@@ -153,7 +153,7 @@ def MSE(video: np.ndarray, ref: str = 'previous', return_all=False) -> Union[flo
         Contains the video information
     ref : string, optional
         Reference frame/image to use as approx for round-truth.
-        Either: previous, median or mean
+        Either: previous, first, median or mean
         Default is 'previous'
     return_all : bool, optional
         whether to return all MSE values for all frames or average the result
@@ -165,6 +165,8 @@ def MSE(video: np.ndarray, ref: str = 'previous', return_all=False) -> Union[flo
     
     if ref == 'previous':
         I = video[:-1].reshape((-1, nb_frame_pixels))
+    elif ref == 'first':
+        I = np.tile(video[0].ravel(), (video.shape[0], 1))
     elif ref == 'median':
         I = np.tile(np.median(video, axis=0).ravel(), (video.shape[0], 1))
     elif ref == 'mean':

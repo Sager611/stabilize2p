@@ -38,6 +38,13 @@ def otsu(image: np.ndarray) -> float:
 def triangle(image: np.ndarray) -> float:
     """Calculate threshold using OpenCV's triangle method.
 
+    If ``image`` is a 2D video, this function calculates the threshold at ~1600 frames/s.
+
+    Parameters
+    ----------
+    image : array
+        can be a video
+
     .. seealso::
 
         Zack, G W et al. “Automatic measurement of sister chromatid exchange frequency.” *The journal of histochemistry and cytochemistry : official journal of the Histochemistry Society* vol. 25,7 (1977): 741-53. doi:10.1177/25.7.70454
