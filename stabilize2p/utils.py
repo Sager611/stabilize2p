@@ -69,7 +69,7 @@ def vxm_data_generator(file_pool,
                        batch_size=8,
                        training=True,
                        affine_transform=True,
-                       ref='mean',
+                       ref='first',
                        keys=None):
     """
     Generator that takes in data of size [N, H, W], and yields data for
@@ -97,7 +97,7 @@ def vxm_data_generator(file_pool,
         - 'last': use the last frame of the video file
         - 'mean': use the mean over frames of the video file
         - 'median': use the median over frames of the video file
-        Defaults to 'mean'
+        Defaults to 'first'
     keys : list, optional
         list of sequences that indicate which frames to take for each file by their index.
         You can specify some keys as None to use all frames, for ex.: ``keys = [range(200), None]``

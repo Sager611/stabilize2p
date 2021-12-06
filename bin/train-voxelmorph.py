@@ -35,9 +35,11 @@ parser.add_argument('--batch-size', type=int, default=8,
                     help='training batch size, aka number of frames (default: 8)')
 parser.add_argument('--l2', type=float, default=0,
                     help='l2 regularization on the network weights (default: 0)')
-parser.add_argument('--load-weights', help='optional weights file to initialize with')
 parser.add_argument('--initial-epoch', type=int, default=0,
                     help='initial epoch number (default: 0)')
+parser.add_argument('--load-weights', help='optional weights file to initialize with')
+parser.add_argument('--ref', default='first',
+                    help='reference frame to use when training. Either: first, last, mean or median (default: first)')
 parser.add_argument('--gpu', default='',
                     help='visible GPU ID numbers. Goes into "CUDA_VISIBLE_DEVICES" env var (default: use all GPUs)')
 parser.add_argument('--predict', action='store_true',
@@ -213,8 +215,8 @@ def train():
         vxm_model.compile(optimizer='Adam', loss=losses, loss_weights=loss_weights)
 
     # data generators
-    train_generator = vxm_data_generator(config['training_pool'], batch_size=args.batch_size)
-    val_generator = vxm_data_generator(config['validation_pool'], batch_size=args.batch_size)
+    train_generator = vxm_data_generator(config['training_pool'], batch_size=args.batch_size, ref=args.ref)
+    val_generator = vxm_data_generator(config['validation_pool'], batch_size=args.batch_size, ref=args.ref)
 
     nb_validation_frames = np.sum([len(tiff.TiffFile(file_path).pages) for file_path in config['validation_pool']])
     print(f'{nb_validation_frames=}')
@@ -293,7 +295,10 @@ vxm_model.load_weights(path)
 print(f'loaded model from: {path}')
 
 # predict validation-set
-val_generator = vxm_data_generator(config['validation_pool'][0], batch_size=args.batch_size, training=False)
+val_generator = vxm_data_generator(config['validation_pool'][0],
+                                   batch_size=args.batch_size,
+                                   training=False,
+                                   ref=args.ref)
 
 # TODO: concatenation is not a good idea for RAM usage!
 val_pred = []
