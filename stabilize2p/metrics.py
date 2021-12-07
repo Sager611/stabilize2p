@@ -19,7 +19,7 @@ from sklearn.utils import gen_batches
 from .utils import get_centers
 
 
-def EMD(video: np.ndarray, n_samples: int = 50, metric: str = 'euclidean', feat_frac: float = 0.2) -> float:
+def EMD(video: np.ndarray, n_samples: int = 500, metric: str = 'euclidean') -> float:
     """Earth Moving Distance score (loosely inspired).
     
     This metric is not standard and it's not recomended to use practically, but only
@@ -41,13 +41,6 @@ def EMD(video: np.ndarray, n_samples: int = 50, metric: str = 'euclidean', feat_
     metric : string
         distance metric to use for optimal transport.
         Defaults to 'euclidean'
-    feat_frac : float
-        the amount, fraction, of the image that corresponds to the features.
-        In a formula:
-        
-        ``feat_frac = (# feature pixels) / (# total pixels)``
-        
-        Defaults to 0.1
     """
     scores = []
     
@@ -62,56 +55,18 @@ def EMD(video: np.ndarray, n_samples: int = 50, metric: str = 'euclidean', feat_
         I_flat = I.flatten()
         J_flat = J.flatten()
 
-        # first, we choose some candidates
-        N = int(feat_frac * I_flat.size)
-        I_idx = np.argpartition(I_flat, -N)[-N:]
-        J_idx = np.argpartition(J_flat, -N)[-N:]
+        # sample random points
+        I_idx = np.random.choice(I_flat.size, p=I_flat, size=n_samples)
+        J_idx = np.random.choice(J_flat.size, p=J_flat, size=n_samples)
 
-        # now, we sample evenly among the candidates
-        I_pts = I_idx[::(I_idx.size//n_samples)]
-        J_pts = J_idx[::(J_idx.size//n_samples)]
-        I_pts = np.c_[np.unravel_index(I_pts, I.shape)][:, ::-1]
-        J_pts = np.c_[np.unravel_index(J_pts, J.shape)][:, ::-1]
+        I_pts = np.c_[np.unravel_index(I_idx, I.shape)]
+        J_pts = np.c_[np.unravel_index(J_idx, J.shape)]
 
-        # # not really a distance metric, since it does not
-        # # follow the triangle inequality
-        # W = (I + J)/2  # W in [0, 1]
-        # W = W.T
-        # metric = lambda u, v: (((u - v) * (1+W[tuple(u)]-W[tuple(v)]))**2).sum()
-
+        # calculate minimum distance assignment
         d = cdist(I_pts, J_pts, metric=metric)
         assignment = linear_sum_assignment(d)
 
-        # # We can repeat this process with a metric that
-        # # makes sure that near I samples are assigned to near
-        # # J samples
-        # for _ in range(2):
-        #     F = (J_pts[assignment[1]] - I_pts)
-
-        #     # perform nearest neighbors on the parameters
-        #     _, I_nn = NearestNeighbors(n_neighbors=2, algorithm='ball_tree') \
-        #         .fit(I_pts) \
-        #         .kneighbors(I_pts)
-        #     I_nn = I_nn[:, 1]
-
-        #     def metric2(ui, v):
-        #         ui = ui[0]
-        #         u = I_pts[ui]
-        #         F_cost = (((v - u) - F[I_nn[ui]])**2).sum()
-        #         return 10*F_cost + (((u - v) * (1+W[tuple(u)]-W[tuple(v)]))**2).sum()
-
-        #     I_temp = np.tile(np.arange(I_pts.shape[0])[:, np.newaxis], (1, 2))
-        #     d = cdist(I_temp, J_pts, metric=metric2)
-        #     assignment = linear_sum_assignment(d)
-
-        def score(u, v):
-            # TODO: make it work in >2D
-            I_vals = I[u[:, 1], u[:, 0], np.newaxis]/2
-            J_vals = J[v[:, 1], v[:, 0], np.newaxis]/2
-            scores = np.sqrt((((u - v)*(I_vals + J_vals))**2).sum(axis=1))
-            return np.mean(scores)
-        sc = score(I_pts, J_pts[assignment[1]])
-        return sc
+        return d[assignment].sum() / n_samples
 
     with ThreadPoolExecutor() as executor:
         futures = [
