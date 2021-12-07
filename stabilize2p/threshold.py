@@ -99,3 +99,38 @@ def watershed(image: np.ndarray, num_peaks: int = 2, bins: int = 800) -> float:
             assert np.sum((idx >= coords[0]) & (idx <= coords[1])) > 0, f'{coords=} | {idx=}'
             threshold_i = idx[(idx >= coords[0]) & (idx <= coords[1])].min()
     return bns[threshold_i:(threshold_i+1)].mean()
+
+
+def deriche(image: np.ndarray) -> float:
+    """Return second maximum of histogram's second derivative using Deriche filter.
+
+    .. seealso::
+
+        Collewet, G et al. “Influence of MRI acquisition protocols and image intensity normalization methods on texture classification.” *Magnetic resonance imaging* vol. 22,1 (2004): 81-91. doi:10.1016/j.mri.2003.09.001
+    """
+    raise NotImplementedError()
+
+
+def second_deriv(image: np.ndarray, bins: int = 800) -> float:
+    """Return 2nd maximum of histogram's second derivative.
+
+    Parameters
+    ----------
+    image : array
+        2D image
+    bins : int, optional
+        number of bins to use for the pixel value histogram of ``image``
+    """
+    hist, bns = np.histogram(image, bins=400)
+
+    dx = bns[1] - bns[0]
+    grad = (hist[1:] - hist[:-1]) / dx
+    grad = cv2.GaussianBlur(grad, (1, 31), 0)
+
+    grad2 = (grad[1:] - grad[:-1]) / dx
+    grad2 = cv2.GaussianBlur(grad2, (1, 31), 0)
+
+    coords = peak_local_max(grad2.ravel(), num_peaks=2)
+
+    i = coords.max()
+    return bns[i:(i+1)].mean()
