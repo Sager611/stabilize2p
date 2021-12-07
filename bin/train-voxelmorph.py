@@ -33,17 +33,19 @@ parser.add_argument('--steps-per-epoch', type=int, default=100,
                     help='steps per epoch (default: 100)')
 parser.add_argument('--batch-size', type=int, default=8,
                     help='training batch size, aka number of frames (default: 8)')
+parser.add_argument('--gpu', default='',
+                    help='visible GPU ID numbers. Goes into "CUDA_VISIBLE_DEVICES" env var (default: use all GPUs)')
 parser.add_argument('--l2', type=float, default=0,
                     help='l2 regularization on the network weights (default: 0)')
 parser.add_argument('--initial-epoch', type=int, default=0,
                     help='initial epoch number (default: 0)')
 parser.add_argument('--load-weights', help='optional weights file to initialize with')
+parser.add_argument('--predict', action='store_true',
+                    help='do not train, just load the model and predict on the dataset')
 parser.add_argument('--ref', default='first',
                     help='reference frame to use when training. Either: first, last, mean or median (default: first)')
-parser.add_argument('--gpu', default='',
-                    help='visible GPU ID numbers. Goes into "CUDA_VISIBLE_DEVICES" env var (default: use all GPUs)')
-parser.add_argument('--predict', action='store_true',
-                    help='Do not train, just load the model and predict on the dataset')
+parser.add_argument('--validation-freq', type=int, default=10,
+                    help='how often (in epochs) to calculate the validation loss (default: 10)')
 
 # network architecture parameters
 parser.add_argument('--enc', type=int, nargs='+',
@@ -74,6 +76,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import time
 import json
 import logging
+from itertools import cycle
 from collections import defaultdict
 
 import cv2
@@ -177,11 +180,10 @@ def train():
     # For each layer, we check if it supports regularization, and if it does, we add it
     if args.l2:
         for li, layer in enumerate(vxm_model.layers):
-            for attr in ['kernel_regularizer']:
-                if hasattr(layer, attr) and hasattr(layer, 'kernel'):
-                    l2 = tf.keras.regularizers.l2(args.l2)
-                    setattr(layer, attr, l2)
-                    layer.add_loss(L2Loss(l2, layer.kernel))
+            if hasattr(layer, 'kernel_regularizer') and hasattr(layer, 'kernel'):
+                l2 = tf.keras.regularizers.l2(args.l2)
+                layer.kernel_regularizer = l2
+                layer.add_loss(L2Loss(l2, layer.kernel))
     
         print('losses:', vxm_model.losses)
         assert len(vxm_model.losses) > 0, 'Could not apply l2 regularization'
@@ -216,12 +218,21 @@ def train():
 
     # data generators
     train_generator = vxm_data_generator(config['training_pool'], batch_size=args.batch_size, ref=args.ref)
-    val_generator = vxm_data_generator(config['validation_pool'], batch_size=args.batch_size, ref=args.ref)
+    if config['validation_pool']:
+        val_generator = vxm_data_generator(config['validation_pool'], batch_size=args.batch_size, ref=args.ref, training=False)
+        # when training=False, the generator generates the frames once,
+        # but tensorflow requires it to cycle in order to use it multiple
+        # times
+        val_generator = cycle(val_generator)
 
-    nb_validation_frames = np.sum([len(tiff.TiffFile(file_path).pages) for file_path in config['validation_pool']])
-    print(f'{nb_validation_frames=}')
+        nb_validation_frames = np.sum([len(tiff.TiffFile(file_path).pages) for file_path in config['validation_pool']])
+        print(f'{nb_validation_frames=}')
+        validation_steps = (nb_validation_frames // args.batch_size)
+    else:
+        val_generator = None
+        validation_steps = None
 
-    # training
+    # save model every 100 epochs
     save_callback = tf.keras.callbacks.ModelCheckpoint(save_filename, save_freq=args.steps_per_epoch*100)
 
     print(f'Training for {args.epochs} epochs')
@@ -229,7 +240,8 @@ def train():
                          initial_epoch=args.initial_epoch,
                          epochs=args.epochs,
                          steps_per_epoch=args.steps_per_epoch,
-                         validation_data=val_generator, validation_steps=(nb_validation_frames // args.batch_size),
+                         validation_data=val_generator, validation_steps=validation_steps,
+                         validation_freq=args.validation_freq,
                          callbacks=[save_callback],
                          verbose=1);
 
@@ -240,7 +252,6 @@ def train():
     # plot history
     import pickle
     import matplotlib.pyplot as plt
-    from itertools import cycle
 
     def plot_history(hist, loss_names=['loss', 'val_loss']):
         # Simple function to plot training history.
@@ -252,7 +263,13 @@ def train():
         # training losses
         for loss_name in loss_names:
             if loss_name in hist.history:
-                plt.plot(hist.epoch, hist.history[loss_name], '.-', c=next(c), label=loss_name)
+                # crude way to retrieve loss calculation frequency
+                N = len(hist.epoch)
+                M = len(hist.history[loss_name])
+                freq = N // M
+
+                plt.plot(np.arange(freq, N+1, freq)[:M],
+                         hist.history[loss_name], '.-', c=next(c), label=loss_name)
 
         # user-provided reference losses
         for label, value in config["reference_losses"].items():
@@ -268,12 +285,15 @@ def train():
     # save to file
     with open(args.out_dir + '/history.pkl', 'wb') as file:
         pickle.dump({'epoch': hist.epoch, 'history': hist.history}, file)
+        print('saved history', flush=True)
 
     plot_history(hist)
-    print('plotted history')
+    print('plotted history', flush=True)
 
-    # no more need for training set
-    del train_generator
+    # no more need for the model
+    del vxm_model
+    # clear Keras session
+    tf.keras.backend.clear_session()
 
 
 # ## Training
@@ -283,46 +303,50 @@ if not args.predict:
 
 # ## Validation
 
-t1 = time.perf_counter()
-
-# build model using VxmDense
-with strategy.scope():
-    vxm_model = vxm.networks.VxmDense(in_shape, [enc_nf, dec_nf], int_steps=0)
-
-# load weights
-path = save_filename.format(epoch=args.epochs)
-vxm_model.load_weights(path)
-print(f'loaded model from: {path}')
-
-# predict validation-set
-val_generator = vxm_data_generator(config['validation_pool'][0],
-                                   batch_size=args.batch_size,
-                                   training=False,
-                                   ref=args.ref)
-
-# TODO: concatenation is not a good idea for RAM usage!
-val_pred = []
-for (val_input, _) in val_generator:
-    val_pred += [vxm_model.predict(val_input, verbose=2)]
-val_pred = [
-    np.concatenate([a[0] for a in val_pred], axis=0),
-    np.concatenate([a[1] for a in val_pred], axis=0)
-]
-# can't do this or we run out of memory!
-# val_pred = vxm_model.predict(val_generator)
-
-t2 = time.perf_counter()
-print(f'Predicted validation in {t2-t1:.2f}s | '
-      f'{val_pred[0].shape[0]/(t2-t1):,.0f} frames/s | {(t2-t1)/val_pred[0].shape[0]:.4g} s/frame')
-
-np.save(args.out_dir + '/validation-video', val_pred[0])
-np.save(args.out_dir + '/validation-flow', val_pred[1])
-
-# visualize flow
-i, j = val_pred[1].shape[1]//2, val_pred[1].shape[2]//2
-ne.plot.flow([val_pred[1][0, i:i+100, j:j+100, :].squeeze()], width=16, show=False);
-plt.savefig(args.out_dir + '/example-flow.svg')
-
-# generate validation video
-make_video(args.out_dir + '/validation-video', frame_gen(val_pred[0]))
-print('generated validation video')
+# if there are validation tests
+if config['validation_pool']:
+    print('starting validation..', flush=True)
+    t1 = time.perf_counter()
+    
+    # build model using VxmDense
+    with strategy.scope():
+        vxm_model = vxm.networks.VxmDense(in_shape, [enc_nf, dec_nf], int_steps=0)
+    
+    # load weights
+    path = save_filename.format(epoch=args.epochs)
+    vxm_model.load_weights(path)
+    print(f'loaded model from: {path}', flush=True)
+    
+    # predict validation-set
+    val_generator = vxm_data_generator(config['validation_pool'],
+                                       batch_size=args.batch_size,
+                                       training=False,
+                                       ref=args.ref)
+    
+    # TODO: concatenation is not a good idea for RAM usage!
+    val_pred = []
+    for (val_input, _) in val_generator:
+        val_pred += [vxm_model.predict(val_input, verbose=2)]
+    val_pred = [
+        np.concatenate([a[0] for a in val_pred], axis=0),
+        np.concatenate([a[1] for a in val_pred], axis=0)
+    ]
+    # can't do this or we run out of memory!
+    # val_pred = vxm_model.predict(val_generator)
+    
+    t2 = time.perf_counter()
+    print(f'Predicted validation in {t2-t1:.2f}s | '
+          f'{val_pred[0].shape[0]/(t2-t1):,.0f} frames/s | {(t2-t1)/val_pred[0].shape[0]:.4g} s/frame',
+          flush=True)
+    
+    np.save(args.out_dir + '/validation-video', val_pred[0])
+    np.save(args.out_dir + '/validation-flow', val_pred[1])
+    
+    # visualize flow
+    i, j = val_pred[1].shape[1]//2, val_pred[1].shape[2]//2
+    ne.plot.flow([val_pred[1][0, i:i+100, j:j+100, :].squeeze()], width=16, show=False);
+    plt.savefig(args.out_dir + '/example-flow.svg')
+    
+    # generate validation video
+    make_video(args.out_dir + '/validation-video', frame_gen(val_pred[0]))
+    print('generated validation video', flush=True)

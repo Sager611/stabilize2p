@@ -92,11 +92,15 @@ def vxm_data_generator(file_pool,
     affine_transform : bool, optional
         whether to perform an affine transform as a pre-step for every batch
     ref : string, optional
-        what image to use as the reference fixed image. Can be:
+        what image to use as the reference fixed image **in validation**. Can be:
         - 'first': use the first frame of the video file
         - 'last': use the last frame of the video file
         - 'mean': use the mean over frames of the video file
         - 'median': use the median over frames of the video file
+        .. note::
+
+            training uses randomly chosen frames as reference.
+
         Defaults to 'first'
     keys : list, optional
         list of sequences that indicate which frames to take for each file by their index.
@@ -166,6 +170,9 @@ def vxm_data_generator(file_pool,
                 params=fixed_refs[file_i][1]
             )
 
+            # TODO: should we use constant references, or random like this?
+            # idx2 = np.random.randint(0, x_data.shape[0], size=batch_size)
+            # fixed = x_data[idx2, ..., np.newaxis]
             fixed = fixed_refs[file_i][0][np.newaxis, ..., np.newaxis]
             fixed = np.tile(fixed, (batch_size, 1, 1, 1))
 
