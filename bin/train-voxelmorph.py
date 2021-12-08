@@ -318,10 +318,13 @@ if config['validation_pool']:
     print(f'loaded model from: {path}', flush=True)
     
     # predict validation-set
-    val_generator = vxm_data_generator(config['validation_pool'],
+    # TODO: make multiple validations possible!
+    store_params = []
+    val_generator = vxm_data_generator(config['validation_pool'][0],
                                        batch_size=args.batch_size,
                                        training=False,
-                                       ref=args.ref)
+                                       ref=args.ref,
+                                       store_params=store_params)
     
     # TODO: concatenation is not a good idea for RAM usage!
     val_pred = []
@@ -333,12 +336,19 @@ if config['validation_pool']:
     ]
     # can't do this or we run out of memory!
     # val_pred = vxm_model.predict(val_generator)
-    
+
+    # undo pre-processing
+    params = store_params[0]
+    h, l = params.pop('hig'), params.pop('low')
+    val_pred[0] = val_pred[0] * (h - l) + l
+    val_pred[0] = np.exp(val_pred[0]) - 1
+    val_pred[0] = val_pred[0] + params['bg_thresh']
+
     t2 = time.perf_counter()
     print(f'Predicted validation in {t2-t1:.2f}s | '
           f'{val_pred[0].shape[0]/(t2-t1):,.0f} frames/s | {(t2-t1)/val_pred[0].shape[0]:.4g} s/frame',
           flush=True)
-    
+
     np.save(args.out_dir + '/validation-video', val_pred[0])
     np.save(args.out_dir + '/validation-flow', val_pred[1])
     

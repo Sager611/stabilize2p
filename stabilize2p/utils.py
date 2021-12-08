@@ -39,6 +39,9 @@ def vxm_preprocessing(x, affine_transform=True, params=None):
     np.clip(x, th, None, out=x)
     x = x - th
 
+    # TODO: does this improve performance?
+    x = np.log(1 + x)
+
     # normalize
     low = x.min() if params is None else params['low']
     hig = x.max() if params is None else params['hig']
@@ -70,7 +73,8 @@ def vxm_data_generator(file_pool,
                        training=True,
                        affine_transform=True,
                        ref='first',
-                       keys=None):
+                       keys=None,
+                       store_params=[]):
     """
     Generator that takes in data of size [N, H, W], and yields data for
     our custom vxm model. Note that we need to provide numpy data for each
@@ -105,6 +109,8 @@ def vxm_data_generator(file_pool,
     keys : list, optional
         list of sequences that indicate which frames to take for each file by their index.
         You can specify some keys as None to use all frames, for ex.: ``keys = [range(200), None]``
+    store_params : list, optional
+        if provided, calculated pre-processing parameters for each file in the pool will be stored in this list
     """
     if type(file_pool) is str:
         file_pool = [file_pool]
@@ -145,9 +151,10 @@ def vxm_data_generator(file_pool,
         video = tiff.imread(file_path, key=key)
         video, params = vxm_preprocessing(video, affine_transform=False)
 
-        ref_ = _extract_ref(video)
-        params['ref'] = ref_
-        fixed_refs += [[ref_, params]]
+        params['ref'] = _extract_ref(video)
+        fixed_refs += [params]
+        # modify output list to contain pre-processing parameters
+        store_params.append(params)
 
     t2 = time.perf_counter()
     _LOGGER.info(f'Calculated "{ref}" fixed references in {t2-t1:.3g}s')
@@ -162,23 +169,26 @@ def vxm_data_generator(file_pool,
             else:
                 nb_frames = key.size
 
-            idx = np.random.randint(0, nb_frames, size=batch_size)
+            params = fixed_refs[file_i]
+
+            # idx = np.random.randint(0, nb_frames, size=batch_size)
+            idx = np.random.randint(0, nb_frames, size=2*batch_size)
             x_data = tiff.imread(file_pool[file_i], key=key[idx])
             x_data, _ = vxm_preprocessing(
                 x_data, 
                 affine_transform=affine_transform,
-                params=fixed_refs[file_i][1]
+                params=params
             )
 
-            # TODO: should we use constant references, or random like this?
-            # idx2 = np.random.randint(0, x_data.shape[0], size=batch_size)
-            # fixed = x_data[idx2, ..., np.newaxis]
-            fixed = fixed_refs[file_i][0][np.newaxis, ..., np.newaxis]
-            fixed = np.tile(fixed, (batch_size, 1, 1, 1))
+            # TODO: should we use constant references, or random?
+            # fixed = params['ref'][np.newaxis, ..., np.newaxis]
+            # fixed = np.tile(fixed, (batch_size, 1, 1, 1))
 
             # prepare inputs:
             # images need to be of the size [batch_size, H, W, 1]
-            moving_images = x_data[..., np.newaxis]
+            # moving_images = x_data[..., np.newaxis]
+            moving_images = x_data[:batch_size, ..., np.newaxis]
+            fixed = x_data[batch_size:, ..., np.newaxis]
             inputs = [moving_images, fixed]
 
             # prepare outputs (the 'true' moved image):
@@ -196,15 +206,17 @@ def vxm_data_generator(file_pool,
             else:
                 nb_frames = key.size
 
+            params = fixed_refs[file_i]
+
             for idx in gen_batches(nb_frames, batch_size):
                 x_data = tiff.imread(file_path, key=key[idx])
                 x_data, _ = vxm_preprocessing(
                     x_data, 
                     affine_transform=affine_transform,
-                    params=fixed_refs[file_i][1]
+                    params=params
                 )
 
-                fixed = fixed_refs[file_i][0][np.newaxis, ..., np.newaxis]
+                fixed = params['ref'][np.newaxis, ..., np.newaxis]
                 fixed = np.tile(fixed, (x_data.shape[0], 1, 1, 1))
 
                 # prepare inputs:
@@ -693,8 +705,11 @@ def blur_video(video: np.ndarray,
                num_reps: int = 1,
                *args, **kwargs) -> np.ndarray:
     """Apply a gaussian filter to ``video`` in parallel.
-    
-    :returns: copy of ``video`` with a gaussian filter applied to all frames.
+
+    Returns
+    -------
+    array
+        copy of ``video`` with a gaussian filter applied to all frames.
     """
     def loop(frame):
         for _ in range(num_reps):
@@ -712,17 +727,35 @@ def blur_video(video: np.ndarray,
     return np.stack(res)
 
 
-def plot_frame_values_3d(frame: np.ndarray, title: str = r"Frame values", pool: int = 15, size: int = 3, saveto=None) -> None:
+def plot_frame_values_3d(frame: np.ndarray,
+                         ax=None,
+                         title: str = r"Frame values",
+                         pool: int = 15,
+                         size: int = 3,
+                         cmap: str = 'jet',
+                         saveto: str = None) -> None:
     """Generate 3d bar plot of ``frame``.
 
-    :param frame: input frame matrix
-    :param title: title for the plot
-    :param pool: size of the averaging pool
-    :param size: length of the bars in the x and y axes. Defaults to `1`.
-    :param saveto: path to save the plot to. Defaults to `None`.
+    Parameters
+    ----------
+    frame : array
+        input frame matrix
+    ax : pyplot axis, optional
+        axis to plot to. It has to allow a 3D projection. Defaults to creating a new one
+    title : string, optional
+        title for the plot
+    pool : int, optional
+        size of the averaging pool
+    size : int, optional
+        length of the bars in the x and y axes. Defaults to `1`
+    cmap : string, optional
+    saveto : string, optional
+        path to save the plot to. Defaults to `None`
     """
-    fig = plt.figure(figsize=(12, 12))
-    ax = fig.add_subplot(111, projection='3d')
+    if ax is None:
+        fig = plt.figure(figsize=(16, 12))
+        ax = fig.add_subplot(111, projection='3d')
+    # set 3d perspective
     ax.view_init(25, 110)
     
     dz = skimage.measure.block_reduce(frame, (pool, pool), np.mean)
@@ -733,19 +766,19 @@ def plot_frame_values_3d(frame: np.ndarray, title: str = r"Frame values", pool: 
     
     dz = dz.ravel()
     
-    cmap = plt.cm.get_cmap('jet') # Get desired colormap - you can change this!
+    cmap = plt.cm.get_cmap(cmap) # Get desired colormap - you can change this!
     max_height = np.max(dz)   # get range of colorbars so we can normalize
     min_height = np.min(dz)
     # scale each z to [0,1], and get their rgb values
     rgba = [cmap((k-min_height)/max_height) for k in dz]
     
     ax.bar3d(x, y, np.zeros_like(dz), size, size, dz, color=rgba, zsort='average', shade=True)
-    plt.title(title)
-    plt.xlabel(r"X")
-    plt.ylabel(r"Y")
+    ax.set_xlabel(r"X")
+    ax.set_ylabel(r"Y")
+    ax.set_zlabel(r"pixel value")
+    ax.set_title(title)
     if saveto:
         plt.savefig(saveto)
-    plt.show()
 
 
 def plot_centers(image, radius=None, s=5, ax=None):  
@@ -782,8 +815,11 @@ def plot_centers(image, radius=None, s=5, ax=None):
 
 def get_strategy(strategy: str = 'default'):
     """Load and return the specified Tensorflow's strategy.
-    
-    :param strategy: either,
+
+    Parameters
+    ----------
+    strategy : string
+        either,
     
         * 'default' (CPU, defaults to this)
         * 'GPU' (Uses Tensorflow's MirroredStrategy)
@@ -794,8 +830,10 @@ def get_strategy(strategy: str = 'default'):
             * If ``strategy`` is 'GPU:1', then use GPU 1.
             * etc.
 
-    :returns: Tensorflow strategy
-    :rtype: :func:`tf.distribute.Strategy`
+    Returns
+    -------
+    :class:`tf.distribute.Strategy`
+        Tensorflow strategy
     """
     # print device info
     _LOGGER.info(f"Num Physical GPUs Available: {len(tf.config.list_physical_devices('GPU'))}")
