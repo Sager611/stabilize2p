@@ -68,7 +68,7 @@ if args.initial_epoch >= args.epochs:
 if args.gpu:
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 # suppress info and warn TF logs
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 
 # ## Imports
@@ -107,7 +107,7 @@ plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
 plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
 # reduce logging in the package to only show errors
-logging.getLogger('stabilize2p').setLevel(logging.ERROR)
+# logging.getLogger('stabilize2p').setLevel(logging.ERROR)
 
 
 def frame_gen(video, scores=None, lt=0.9):

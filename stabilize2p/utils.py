@@ -133,7 +133,6 @@ def vxm_data_generator(file_pool,
     zero_phi = np.zeros([batch_size, *vol_shape, ndims])
 
     # fixed image references for each file in the pool
-    fixed_refs: list = []
     t1 = time.perf_counter()
 
     if ref == 'first':
@@ -150,9 +149,9 @@ def vxm_data_generator(file_pool,
     for key, file_path in zip(keys, file_pool):
         video = tiff.imread(file_path, key=key)
         video, params = vxm_preprocessing(video, affine_transform=False)
-
         params['ref'] = _extract_ref(video)
-        fixed_refs += [params]
+        del video
+
         # modify output list to contain pre-processing parameters
         store_params.append(params)
 
@@ -164,12 +163,13 @@ def vxm_data_generator(file_pool,
             file_i = np.random.choice(len(file_pool))
             key = keys[file_i]
             if key is None:
-                nb_frames = len(tiff.TiffFile(file_pool[file_i]).pages)
+                with tiff.TiffFile(file_pool[file_i]) as f:
+                    nb_frames = len(f.pages)
                 key = np.arange(nb_frames)
             else:
                 nb_frames = key.size
 
-            params = fixed_refs[file_i]
+            params = store_params[file_i]
 
             # idx = np.random.randint(0, nb_frames, size=batch_size)
             idx = np.random.randint(0, nb_frames, size=2*batch_size)
@@ -201,12 +201,13 @@ def vxm_data_generator(file_pool,
     else:
         for file_i, (file_path, key) in enumerate(zip(file_pool, keys)):
             if key is None:
-                nb_frames = len(tiff.TiffFile(file_path).pages)
+                with tiff.TiffFile(file_pool[file_i]) as f:
+                    nb_frames = len(f.pages)
                 key = np.arange(nb_frames)
             else:
                 nb_frames = key.size
 
-            params = fixed_refs[file_i]
+            params = store_params[file_i]
 
             for idx in gen_batches(nb_frames, batch_size):
                 x_data = tiff.imread(file_path, key=key[idx])
