@@ -36,8 +36,18 @@
 <span id="threshold-module"></span><h1>threshold module<a class="headerlink" href="#module-stabilize2p.threshold" title="Permalink to this headline">¶</a></h1>
 <p>Module including thresholding methods.</p>
 <dl class="py function">
+<dt class="sig sig-object py" id="stabilize2p.threshold.deriche">
+<span class="sig-prename descclassname"><span class="pre">stabilize2p.threshold.</span></span><span class="sig-name descname"><span class="pre">deriche</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">numpy.ndarray</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="_modules/stabilize2p/threshold.html#deriche"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.threshold.deriche" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return second maximum of histogram’s second derivative using Deriche filter.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p>Collewet, G et al. “Influence of MRI acquisition protocols and image intensity normalization methods on texture classification.” <em>Magnetic resonance imaging</em> vol. 22,1 (2004): 81-91. doi:10.1016/j.mri.2003.09.001</p>
+</div>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="stabilize2p.threshold.otsu">
-<span class="sig-prename descclassname"><span class="pre">stabilize2p.threshold.</span></span><span class="sig-name descname"><span class="pre">otsu</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">numpy.ndarray</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="_modules/stabilize2p/threshold.html#otsu"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.threshold.otsu" title="Permalink to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">stabilize2p.threshold.</span></span><span class="sig-name descname"><span class="pre">otsu</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">numpy.ndarray</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="_modules/stabilize2p/threshold.html#otsu"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.threshold.otsu" title="Permalink to this definition">¶</a></dt>
 <dd><p>Calculate Otsu threshold.</p>
 <div class="admonition seealso">
 <p class="admonition-title">See also</p>
@@ -46,18 +56,38 @@
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="stabilize2p.threshold.second_deriv">
+<span class="sig-prename descclassname"><span class="pre">stabilize2p.threshold.</span></span><span class="sig-name descname"><span class="pre">second_deriv</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">numpy.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bins</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">int</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">800</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="_modules/stabilize2p/threshold.html#second_deriv"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.threshold.second_deriv" title="Permalink to this definition">¶</a></dt>
+<dd><p>Return 2nd maximum of histogram’s second derivative.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>image</strong> (<em>array</em>) – 2D image</p></li>
+<li><p><strong>bins</strong> (<em>int</em><em>, </em><em>optional</em>) – number of bins to use for the pixel value histogram of <code class="docutils literal notranslate"><span class="pre">image</span></code></p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="stabilize2p.threshold.triangle">
-<span class="sig-prename descclassname"><span class="pre">stabilize2p.threshold.</span></span><span class="sig-name descname"><span class="pre">triangle</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">numpy.ndarray</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="_modules/stabilize2p/threshold.html#triangle"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.threshold.triangle" title="Permalink to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">stabilize2p.threshold.</span></span><span class="sig-name descname"><span class="pre">triangle</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">numpy.ndarray</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="_modules/stabilize2p/threshold.html#triangle"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.threshold.triangle" title="Permalink to this definition">¶</a></dt>
 <dd><p>Calculate threshold using OpenCV’s triangle method.</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">image</span></code> is a 2D video, this function calculates the threshold at ~1600 frames/s.</p>
 <div class="admonition seealso">
 <p class="admonition-title">See also</p>
 <p>Zack, G W et al. “Automatic measurement of sister chromatid exchange frequency.” <em>The journal of histochemistry and cytochemistry : official journal of the Histochemistry Society</em> vol. 25,7 (1977): 741-53. doi:10.1177/25.7.70454</p>
 </div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>image</strong> (<em>array</em>) – can be a video</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="stabilize2p.threshold.watershed">
-<span class="sig-prename descclassname"><span class="pre">stabilize2p.threshold.</span></span><span class="sig-name descname"><span class="pre">watershed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">numpy.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_peaks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bins</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">800</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="_modules/stabilize2p/threshold.html#watershed"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.threshold.watershed" title="Permalink to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">stabilize2p.threshold.</span></span><span class="sig-name descname"><span class="pre">watershed</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">numpy.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_peaks</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">int</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bins</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">int</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">800</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="_modules/stabilize2p/threshold.html#watershed"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.threshold.watershed" title="Permalink to this definition">¶</a></dt>
 <dd><p>Apply the watershed algorithm to find threshold between the first two histogram modes.</p>
 <p>In this method, it is assumed that the pixel values of <code class="docutils literal notranslate"><span class="pre">image</span></code> form a multi-modal
 histogram, in which the lower mode corresponds to background pixels and the 2nd lowest one
@@ -140,7 +170,7 @@ these two.</p>
       &copy;2021, Adrian Sager La Ganga.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.3.1</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.2.0</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |

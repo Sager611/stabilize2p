@@ -67,10 +67,13 @@
 
 
 <div class="viewcode-block" id="vxm_preprocessing"><a class="viewcode-back" href="../../utils.html#stabilize2p.utils.vxm_preprocessing">[docs]</a><span class="k">def</span> <span class="nf">vxm_preprocessing</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">affine_transform</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">params</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-    <span class="c1"># &quot;remove&#39; background</span>
+    <span class="c1"># &quot;remove&#39; background. Threshold calculation should be ~1600 frames/s</span>
     <span class="n">th</span> <span class="o">=</span> <span class="n">threshold</span><span class="o">.</span><span class="n">triangle</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">if</span> <span class="n">params</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;bg_thresh&#39;</span><span class="p">]</span> 
     <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">th</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">out</span><span class="o">=</span><span class="n">x</span><span class="p">)</span>
     <span class="n">x</span> <span class="o">=</span> <span class="n">x</span> <span class="o">-</span> <span class="n">th</span>
+
+    <span class="c1"># TODO: does this improve performance?</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">x</span><span class="p">)</span>
 
     <span class="c1"># normalize</span>
     <span class="n">low</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="k">if</span> <span class="n">params</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;low&#39;</span><span class="p">]</span>
@@ -102,8 +105,9 @@
                        <span class="n">batch_size</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
                        <span class="n">training</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
                        <span class="n">affine_transform</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                       <span class="n">ref</span><span class="o">=</span><span class="s1">&#39;mean&#39;</span><span class="p">,</span>
-                       <span class="n">keys</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+                       <span class="n">ref</span><span class="o">=</span><span class="s1">&#39;first&#39;</span><span class="p">,</span>
+                       <span class="n">keys</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                       <span class="n">store_params</span><span class="o">=</span><span class="p">[]):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Generator that takes in data of size [N, H, W], and yields data for</span>
 <span class="sd">    our custom vxm model. Note that we need to provide numpy data for each</span>
@@ -123,18 +127,23 @@
 <span class="sd">        whether to activate training mode. Deactivating training mode means</span>
 <span class="sd">        batches are generated in order, from the first file to the last</span>
 <span class="sd">    affine_transform : bool, optional</span>
-<span class="sd">        whether to perform an affine transform as a pre-step for every batch using</span>
-<span class="sd">        :class:`pystackreg.StackReg`</span>
+<span class="sd">        whether to perform an affine transform as a pre-step for every batch</span>
 <span class="sd">    ref : string, optional</span>
-<span class="sd">        what image to use as the reference fixed image. Can be:</span>
+<span class="sd">        what image to use as the reference fixed image **in validation**. Can be:</span>
 <span class="sd">        - &#39;first&#39;: use the first frame of the video file</span>
 <span class="sd">        - &#39;last&#39;: use the last frame of the video file</span>
 <span class="sd">        - &#39;mean&#39;: use the mean over frames of the video file</span>
 <span class="sd">        - &#39;median&#39;: use the median over frames of the video file</span>
-<span class="sd">        Defaults to &#39;mean&#39;</span>
+<span class="sd">        .. note::</span>
+
+<span class="sd">            training uses randomly chosen frames as reference.</span>
+
+<span class="sd">        Defaults to &#39;first&#39;</span>
 <span class="sd">    keys : list, optional</span>
 <span class="sd">        list of sequences that indicate which frames to take for each file by their index.</span>
 <span class="sd">        You can specify some keys as None to use all frames, for ex.: ``keys = [range(200), None]``</span>
+<span class="sd">    store_params : list, optional</span>
+<span class="sd">        if provided, calculated pre-processing parameters for each file in the pool will be stored in this list</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">file_pool</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">str</span><span class="p">:</span>
         <span class="n">file_pool</span> <span class="o">=</span> <span class="p">[</span><span class="n">file_pool</span><span class="p">]</span>
@@ -175,9 +184,10 @@
         <span class="n">video</span> <span class="o">=</span> <span class="n">tiff</span><span class="o">.</span><span class="n">imread</span><span class="p">(</span><span class="n">file_path</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">)</span>
         <span class="n">video</span><span class="p">,</span> <span class="n">params</span> <span class="o">=</span> <span class="n">vxm_preprocessing</span><span class="p">(</span><span class="n">video</span><span class="p">,</span> <span class="n">affine_transform</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
-        <span class="n">ref_</span> <span class="o">=</span> <span class="n">_extract_ref</span><span class="p">(</span><span class="n">video</span><span class="p">)</span>
-        <span class="n">params</span><span class="p">[</span><span class="s1">&#39;ref&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ref_</span>
-        <span class="n">fixed_refs</span> <span class="o">+=</span> <span class="p">[[</span><span class="n">ref_</span><span class="p">,</span> <span class="n">params</span><span class="p">]]</span>
+        <span class="n">params</span><span class="p">[</span><span class="s1">&#39;ref&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_extract_ref</span><span class="p">(</span><span class="n">video</span><span class="p">)</span>
+        <span class="n">fixed_refs</span> <span class="o">+=</span> <span class="p">[</span><span class="n">params</span><span class="p">]</span>
+        <span class="c1"># modify output list to contain pre-processing parameters</span>
+        <span class="n">store_params</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
 
     <span class="n">t2</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
     <span class="n">_LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Calculated &quot;</span><span class="si">{</span><span class="n">ref</span><span class="si">}</span><span class="s1">&quot; fixed references in </span><span class="si">{</span><span class="n">t2</span><span class="o">-</span><span class="n">t1</span><span class="si">:</span><span class="s1">.3g</span><span class="si">}</span><span class="s1">s&#39;</span><span class="p">)</span>
@@ -192,20 +202,26 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">nb_frames</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="n">size</span>
 
-            <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">nb_frames</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">)</span>
+            <span class="n">params</span> <span class="o">=</span> <span class="n">fixed_refs</span><span class="p">[</span><span class="n">file_i</span><span class="p">]</span>
+
+            <span class="c1"># idx = np.random.randint(0, nb_frames, size=batch_size)</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">nb_frames</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">2</span><span class="o">*</span><span class="n">batch_size</span><span class="p">)</span>
             <span class="n">x_data</span> <span class="o">=</span> <span class="n">tiff</span><span class="o">.</span><span class="n">imread</span><span class="p">(</span><span class="n">file_pool</span><span class="p">[</span><span class="n">file_i</span><span class="p">],</span> <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
             <span class="n">x_data</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">vxm_preprocessing</span><span class="p">(</span>
                 <span class="n">x_data</span><span class="p">,</span> 
                 <span class="n">affine_transform</span><span class="o">=</span><span class="n">affine_transform</span><span class="p">,</span>
-                <span class="n">params</span><span class="o">=</span><span class="n">fixed_refs</span><span class="p">[</span><span class="n">file_i</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">params</span><span class="o">=</span><span class="n">params</span>
             <span class="p">)</span>
 
-            <span class="n">fixed</span> <span class="o">=</span> <span class="n">fixed_refs</span><span class="p">[</span><span class="n">file_i</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="o">...</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
-            <span class="n">fixed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">fixed</span><span class="p">,</span> <span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+            <span class="c1"># TODO: should we use constant references, or random?</span>
+            <span class="c1"># fixed = params[&#39;ref&#39;][np.newaxis, ..., np.newaxis]</span>
+            <span class="c1"># fixed = np.tile(fixed, (batch_size, 1, 1, 1))</span>
 
             <span class="c1"># prepare inputs:</span>
             <span class="c1"># images need to be of the size [batch_size, H, W, 1]</span>
-            <span class="n">moving_images</span> <span class="o">=</span> <span class="n">x_data</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
+            <span class="c1"># moving_images = x_data[..., np.newaxis]</span>
+            <span class="n">moving_images</span> <span class="o">=</span> <span class="n">x_data</span><span class="p">[:</span><span class="n">batch_size</span><span class="p">,</span> <span class="o">...</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
+            <span class="n">fixed</span> <span class="o">=</span> <span class="n">x_data</span><span class="p">[</span><span class="n">batch_size</span><span class="p">:,</span> <span class="o">...</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
             <span class="n">inputs</span> <span class="o">=</span> <span class="p">[</span><span class="n">moving_images</span><span class="p">,</span> <span class="n">fixed</span><span class="p">]</span>
 
             <span class="c1"># prepare outputs (the &#39;true&#39; moved image):</span>
@@ -223,15 +239,17 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">nb_frames</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="n">size</span>
 
+            <span class="n">params</span> <span class="o">=</span> <span class="n">fixed_refs</span><span class="p">[</span><span class="n">file_i</span><span class="p">]</span>
+
             <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">gen_batches</span><span class="p">(</span><span class="n">nb_frames</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">):</span>
                 <span class="n">x_data</span> <span class="o">=</span> <span class="n">tiff</span><span class="o">.</span><span class="n">imread</span><span class="p">(</span><span class="n">file_path</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
                 <span class="n">x_data</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">vxm_preprocessing</span><span class="p">(</span>
                     <span class="n">x_data</span><span class="p">,</span> 
                     <span class="n">affine_transform</span><span class="o">=</span><span class="n">affine_transform</span><span class="p">,</span>
-                    <span class="n">params</span><span class="o">=</span><span class="n">fixed_refs</span><span class="p">[</span><span class="n">file_i</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+                    <span class="n">params</span><span class="o">=</span><span class="n">params</span>
                 <span class="p">)</span>
 
-                <span class="n">fixed</span> <span class="o">=</span> <span class="n">fixed_refs</span><span class="p">[</span><span class="n">file_i</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="o">...</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
+                <span class="n">fixed</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;ref&#39;</span><span class="p">][</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="o">...</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
                 <span class="n">fixed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">fixed</span><span class="p">,</span> <span class="p">(</span><span class="n">x_data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
 
                 <span class="c1"># prepare inputs:</span>
@@ -720,8 +738,11 @@
                <span class="n">num_reps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
                <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;Apply a gaussian filter to ``video`` in parallel.</span>
-<span class="sd">    </span>
-<span class="sd">    :returns: copy of ``video`` with a gaussian filter applied to all frames.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    array</span>
+<span class="sd">        copy of ``video`` with a gaussian filter applied to all frames.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">def</span> <span class="nf">loop</span><span class="p">(</span><span class="n">frame</span><span class="p">):</span>
         <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_reps</span><span class="p">):</span>
@@ -739,17 +760,35 @@
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">res</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="plot_frame_values_3d"><a class="viewcode-back" href="../../utils.html#stabilize2p.utils.plot_frame_values_3d">[docs]</a><span class="k">def</span> <span class="nf">plot_frame_values_3d</span><span class="p">(</span><span class="n">frame</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;Frame values&quot;</span><span class="p">,</span> <span class="n">pool</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">15</span><span class="p">,</span> <span class="n">size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span> <span class="n">saveto</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<div class="viewcode-block" id="plot_frame_values_3d"><a class="viewcode-back" href="../../utils.html#stabilize2p.utils.plot_frame_values_3d">[docs]</a><span class="k">def</span> <span class="nf">plot_frame_values_3d</span><span class="p">(</span><span class="n">frame</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+                         <span class="n">ax</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                         <span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="sa">r</span><span class="s2">&quot;Frame values&quot;</span><span class="p">,</span>
+                         <span class="n">pool</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">15</span><span class="p">,</span>
+                         <span class="n">size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
+                         <span class="n">cmap</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;jet&#39;</span><span class="p">,</span>
+                         <span class="n">saveto</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;Generate 3d bar plot of ``frame``.</span>
 
-<span class="sd">    :param frame: input frame matrix</span>
-<span class="sd">    :param title: title for the plot</span>
-<span class="sd">    :param pool: size of the averaging pool</span>
-<span class="sd">    :param size: length of the bars in the x and y axes. Defaults to `1`.</span>
-<span class="sd">    :param saveto: path to save the plot to. Defaults to `None`.</span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    frame : array</span>
+<span class="sd">        input frame matrix</span>
+<span class="sd">    ax : pyplot axis, optional</span>
+<span class="sd">        axis to plot to. It has to allow a 3D projection. Defaults to creating a new one</span>
+<span class="sd">    title : string, optional</span>
+<span class="sd">        title for the plot</span>
+<span class="sd">    pool : int, optional</span>
+<span class="sd">        size of the averaging pool</span>
+<span class="sd">    size : int, optional</span>
+<span class="sd">        length of the bars in the x and y axes. Defaults to `1`</span>
+<span class="sd">    cmap : string, optional</span>
+<span class="sd">    saveto : string, optional</span>
+<span class="sd">        path to save the plot to. Defaults to `None`</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">12</span><span class="p">))</span>
-    <span class="n">ax</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">111</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;3d&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">ax</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">12</span><span class="p">))</span>
+        <span class="n">ax</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="mi">111</span><span class="p">,</span> <span class="n">projection</span><span class="o">=</span><span class="s1">&#39;3d&#39;</span><span class="p">)</span>
+    <span class="c1"># set 3d perspective</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">view_init</span><span class="p">(</span><span class="mi">25</span><span class="p">,</span> <span class="mi">110</span><span class="p">)</span>
     
     <span class="n">dz</span> <span class="o">=</span> <span class="n">skimage</span><span class="o">.</span><span class="n">measure</span><span class="o">.</span><span class="n">block_reduce</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="p">(</span><span class="n">pool</span><span class="p">,</span> <span class="n">pool</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">)</span>
@@ -760,25 +799,60 @@
     
     <span class="n">dz</span> <span class="o">=</span> <span class="n">dz</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
     
-    <span class="n">cmap</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">cm</span><span class="o">.</span><span class="n">get_cmap</span><span class="p">(</span><span class="s1">&#39;jet&#39;</span><span class="p">)</span> <span class="c1"># Get desired colormap - you can change this!</span>
+    <span class="n">cmap</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">cm</span><span class="o">.</span><span class="n">get_cmap</span><span class="p">(</span><span class="n">cmap</span><span class="p">)</span> <span class="c1"># Get desired colormap - you can change this!</span>
     <span class="n">max_height</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">dz</span><span class="p">)</span>   <span class="c1"># get range of colorbars so we can normalize</span>
     <span class="n">min_height</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">dz</span><span class="p">)</span>
     <span class="c1"># scale each z to [0,1], and get their rgb values</span>
     <span class="n">rgba</span> <span class="o">=</span> <span class="p">[</span><span class="n">cmap</span><span class="p">((</span><span class="n">k</span><span class="o">-</span><span class="n">min_height</span><span class="p">)</span><span class="o">/</span><span class="n">max_height</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">dz</span><span class="p">]</span>
     
     <span class="n">ax</span><span class="o">.</span><span class="n">bar3d</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">dz</span><span class="p">),</span> <span class="n">size</span><span class="p">,</span> <span class="n">size</span><span class="p">,</span> <span class="n">dz</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">rgba</span><span class="p">,</span> <span class="n">zsort</span><span class="o">=</span><span class="s1">&#39;average&#39;</span><span class="p">,</span> <span class="n">shade</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;X&quot;</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;Y&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;X&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;Y&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_zlabel</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;pixel value&quot;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">saveto</span><span class="p">:</span>
-        <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">saveto</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span></div>
+        <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">saveto</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="plot_centers"><a class="viewcode-back" href="../../utils.html#stabilize2p.utils.plot_centers">[docs]</a><span class="k">def</span> <span class="nf">plot_centers</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>  
+    <span class="k">if</span> <span class="n">radius</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">radius</span> <span class="o">=</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="nb">min</span><span class="p">(</span><span class="n">image</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">radius</span><span class="si">=}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+    <span class="c1"># calculate centers</span>
+    <span class="n">centers</span> <span class="o">=</span> <span class="n">get_centers</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
+
+    <span class="n">m_centers</span> <span class="o">=</span> <span class="n">centers</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">s_centers</span> <span class="o">=</span> <span class="n">centers</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;x: </span><span class="si">{</span><span class="n">m_centers</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1"> + </span><span class="si">{</span><span class="n">s_centers</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;y: </span><span class="si">{</span><span class="n">m_centers</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1"> + </span><span class="si">{</span><span class="n">s_centers</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+    <span class="n">target</span> <span class="o">=</span> <span class="n">m_centers</span>
+    
+    <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">111</span><span class="p">)</span> <span class="k">if</span> <span class="n">ax</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">ax</span>
+
+    <span class="n">circ</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">Circle</span><span class="p">(</span><span class="n">m_centers</span><span class="p">,</span> <span class="n">radius</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;r&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">.25</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">add_patch</span><span class="p">(</span><span class="n">circ</span><span class="p">)</span>
+
+    <span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">centers</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">centers</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">s</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">target</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">target</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s1">&#39;ko&#39;</span><span class="p">)</span>
+    
+    <span class="p">(</span><span class="n">lx</span><span class="p">,</span> <span class="n">hx</span><span class="p">),</span> <span class="p">(</span><span class="n">ly</span><span class="p">,</span> <span class="n">hy</span><span class="p">)</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">get_xlim</span><span class="p">(),</span> <span class="n">ax</span><span class="o">.</span><span class="n">get_ylim</span><span class="p">()</span>
+    <span class="n">dmax</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">hx</span><span class="o">-</span><span class="n">lx</span><span class="p">,</span> <span class="n">hy</span><span class="o">-</span><span class="n">ly</span><span class="p">)</span>
+    <span class="n">hx</span><span class="p">,</span> <span class="n">hy</span> <span class="o">=</span> <span class="n">lx</span><span class="o">+</span><span class="n">dmax</span><span class="p">,</span> <span class="n">ly</span><span class="o">+</span><span class="n">dmax</span>
+    <span class="n">lx</span><span class="p">,</span> <span class="n">ly</span> <span class="o">=</span> <span class="n">lx</span> <span class="o">-</span> <span class="p">(</span><span class="n">dmax</span> <span class="o">-</span> <span class="mi">2</span><span class="o">*</span><span class="n">radius</span><span class="p">),</span> <span class="n">ly</span> <span class="o">-</span> <span class="p">(</span><span class="n">dmax</span> <span class="o">-</span> <span class="mi">2</span><span class="o">*</span><span class="n">radius</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span><span class="n">lx</span><span class="p">,</span> <span class="n">hx</span><span class="p">);</span> <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="n">ly</span><span class="p">,</span> <span class="n">hy</span><span class="p">);</span>
+    
+    <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;Centers of mass&#39;</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="get_strategy"><a class="viewcode-back" href="../../utils.html#stabilize2p.utils.get_strategy">[docs]</a><span class="k">def</span> <span class="nf">get_strategy</span><span class="p">(</span><span class="n">strategy</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;default&#39;</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Load and return the specified Tensorflow&#39;s strategy.</span>
-<span class="sd">    </span>
-<span class="sd">    :param strategy: either,</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    strategy : string</span>
+<span class="sd">        either,</span>
 <span class="sd">    </span>
 <span class="sd">        * &#39;default&#39; (CPU, defaults to this)</span>
 <span class="sd">        * &#39;GPU&#39; (Uses Tensorflow&#39;s MirroredStrategy)</span>
@@ -789,8 +863,10 @@
 <span class="sd">            * If ``strategy`` is &#39;GPU:1&#39;, then use GPU 1.</span>
 <span class="sd">            * etc.</span>
 
-<span class="sd">    :returns: Tensorflow strategy</span>
-<span class="sd">    :rtype: :func:`tf.distribute.Strategy`</span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    :class:`tf.distribute.Strategy`</span>
+<span class="sd">        Tensorflow strategy</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># print device info</span>
     <span class="n">_LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Num Physical GPUs Available: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">list_physical_devices</span><span class="p">(</span><span class="s1">&#39;GPU&#39;</span><span class="p">))</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -886,7 +962,7 @@
       &copy;2021, Adrian Sager La Ganga.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.3.1</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.2.0</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>

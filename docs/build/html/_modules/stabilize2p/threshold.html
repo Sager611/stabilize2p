@@ -71,9 +71,16 @@
 <div class="viewcode-block" id="triangle"><a class="viewcode-back" href="../../threshold.html#stabilize2p.threshold.triangle">[docs]</a><span class="k">def</span> <span class="nf">triangle</span><span class="p">(</span><span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;Calculate threshold using OpenCV&#39;s triangle method.</span>
 
+<span class="sd">    If ``image`` is a 2D video, this function calculates the threshold at ~1600 frames/s.</span>
+
 <span class="sd">    .. seealso::</span>
 
 <span class="sd">        Zack, G W et al. “Automatic measurement of sister chromatid exchange frequency.” *The journal of histochemistry and cytochemistry : official journal of the Histochemistry Society* vol. 25,7 (1977): 741-53. doi:10.1177/25.7.70454</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    image : array</span>
+<span class="sd">        can be a video</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># normalize image to use in cv2.threshold</span>
     <span class="n">low</span><span class="p">,</span> <span class="n">hig</span> <span class="o">=</span> <span class="n">image</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">image</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
@@ -125,6 +132,41 @@
             <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">idx</span> <span class="o">&gt;=</span> <span class="n">coords</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">idx</span> <span class="o">&lt;=</span> <span class="n">coords</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">coords</span><span class="si">=}</span><span class="s1"> | </span><span class="si">{</span><span class="n">idx</span><span class="si">=}</span><span class="s1">&#39;</span>
             <span class="n">threshold_i</span> <span class="o">=</span> <span class="n">idx</span><span class="p">[(</span><span class="n">idx</span> <span class="o">&gt;=</span> <span class="n">coords</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">idx</span> <span class="o">&lt;=</span> <span class="n">coords</span><span class="p">[</span><span class="mi">1</span><span class="p">])]</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
     <span class="k">return</span> <span class="n">bns</span><span class="p">[</span><span class="n">threshold_i</span><span class="p">:(</span><span class="n">threshold_i</span><span class="o">+</span><span class="mi">1</span><span class="p">)]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="deriche"><a class="viewcode-back" href="../../threshold.html#stabilize2p.threshold.deriche">[docs]</a><span class="k">def</span> <span class="nf">deriche</span><span class="p">(</span><span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Return second maximum of histogram&#39;s second derivative using Deriche filter.</span>
+
+<span class="sd">    .. seealso::</span>
+
+<span class="sd">        Collewet, G et al. “Influence of MRI acquisition protocols and image intensity normalization methods on texture classification.” *Magnetic resonance imaging* vol. 22,1 (2004): 81-91. doi:10.1016/j.mri.2003.09.001</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="second_deriv"><a class="viewcode-back" href="../../threshold.html#stabilize2p.threshold.second_deriv">[docs]</a><span class="k">def</span> <span class="nf">second_deriv</span><span class="p">(</span><span class="n">image</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">bins</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">800</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Return 2nd maximum of histogram&#39;s second derivative.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    image : array</span>
+<span class="sd">        2D image</span>
+<span class="sd">    bins : int, optional</span>
+<span class="sd">        number of bins to use for the pixel value histogram of ``image``</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">hist</span><span class="p">,</span> <span class="n">bns</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">histogram</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="mi">400</span><span class="p">)</span>
+
+    <span class="n">dx</span> <span class="o">=</span> <span class="n">bns</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">bns</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">grad</span> <span class="o">=</span> <span class="p">(</span><span class="n">hist</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">-</span> <span class="n">hist</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="n">dx</span>
+    <span class="n">grad</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">GaussianBlur</span><span class="p">(</span><span class="n">grad</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">31</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span>
+
+    <span class="n">grad2</span> <span class="o">=</span> <span class="p">(</span><span class="n">grad</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">-</span> <span class="n">grad</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="n">dx</span>
+    <span class="n">grad2</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">GaussianBlur</span><span class="p">(</span><span class="n">grad2</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">31</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span>
+
+    <span class="n">coords</span> <span class="o">=</span> <span class="n">peak_local_max</span><span class="p">(</span><span class="n">grad2</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span> <span class="n">num_peaks</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+    <span class="n">i</span> <span class="o">=</span> <span class="n">coords</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">bns</span><span class="p">[</span><span class="n">i</span><span class="p">:(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span></div>
 </pre></div>
 
           </div>
@@ -183,7 +225,7 @@
       &copy;2021, Adrian Sager La Ganga.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.3.1</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.2.0</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>

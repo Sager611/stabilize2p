@@ -37,7 +37,7 @@
 
 <span class="sd">&quot;&quot;&quot;</span>
 
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 <span class="kn">from</span> <span class="nn">concurrent.futures.thread</span> <span class="kn">import</span> <span class="n">ThreadPoolExecutor</span>
 
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
@@ -49,10 +49,10 @@
 <span class="kn">from</span> <span class="nn">sklearn.neighbors</span> <span class="kn">import</span> <span class="n">NearestNeighbors</span>
 <span class="kn">from</span> <span class="nn">sklearn.utils</span> <span class="kn">import</span> <span class="n">gen_batches</span>
 
-<span class="kn">from</span> <span class="nn">.utils</span> <span class="kn">import</span> <span class="n">estimate_background_threshold</span><span class="p">,</span> <span class="n">get_centers</span>
+<span class="kn">from</span> <span class="nn">.utils</span> <span class="kn">import</span> <span class="n">get_centers</span>
 
 
-<div class="viewcode-block" id="EMD"><a class="viewcode-back" href="../../metrics.html#stabilize2p.metrics.EMD">[docs]</a><span class="k">def</span> <span class="nf">EMD</span><span class="p">(</span><span class="n">video</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">50</span><span class="p">,</span> <span class="n">metric</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;euclidean&#39;</span><span class="p">,</span> <span class="n">feat_frac</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.2</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<div class="viewcode-block" id="EMD"><a class="viewcode-back" href="../../metrics.html#stabilize2p.metrics.EMD">[docs]</a><span class="k">def</span> <span class="nf">EMD</span><span class="p">(</span><span class="n">video</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">500</span><span class="p">,</span> <span class="n">metric</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;euclidean&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;Earth Moving Distance score (loosely inspired).</span>
 <span class="sd">    </span>
 <span class="sd">    This metric is not standard and it&#39;s not recomended to use practically, but only</span>
@@ -74,13 +74,6 @@
 <span class="sd">    metric : string</span>
 <span class="sd">        distance metric to use for optimal transport.</span>
 <span class="sd">        Defaults to &#39;euclidean&#39;</span>
-<span class="sd">    feat_frac : float</span>
-<span class="sd">        the amount, fraction, of the image that corresponds to the features.</span>
-<span class="sd">        In a formula:</span>
-<span class="sd">        </span>
-<span class="sd">        ``feat_frac = (# feature pixels) / (# total pixels)``</span>
-<span class="sd">        </span>
-<span class="sd">        Defaults to 0.1</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">scores</span> <span class="o">=</span> <span class="p">[]</span>
     
@@ -95,56 +88,18 @@
         <span class="n">I_flat</span> <span class="o">=</span> <span class="n">I</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
         <span class="n">J_flat</span> <span class="o">=</span> <span class="n">J</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
 
-        <span class="c1"># first, we choose some candidates</span>
-        <span class="n">N</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">feat_frac</span> <span class="o">*</span> <span class="n">I_flat</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
-        <span class="n">I_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argpartition</span><span class="p">(</span><span class="n">I_flat</span><span class="p">,</span> <span class="o">-</span><span class="n">N</span><span class="p">)[</span><span class="o">-</span><span class="n">N</span><span class="p">:]</span>
-        <span class="n">J_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argpartition</span><span class="p">(</span><span class="n">J_flat</span><span class="p">,</span> <span class="o">-</span><span class="n">N</span><span class="p">)[</span><span class="o">-</span><span class="n">N</span><span class="p">:]</span>
+        <span class="c1"># sample random points</span>
+        <span class="n">I_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">I_flat</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="n">I_flat</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">n_samples</span><span class="p">)</span>
+        <span class="n">J_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">J_flat</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="n">J_flat</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">n_samples</span><span class="p">)</span>
 
-        <span class="c1"># now, we sample evenly among the candidates</span>
-        <span class="n">I_pts</span> <span class="o">=</span> <span class="n">I_idx</span><span class="p">[::(</span><span class="n">I_idx</span><span class="o">.</span><span class="n">size</span><span class="o">//</span><span class="n">n_samples</span><span class="p">)]</span>
-        <span class="n">J_pts</span> <span class="o">=</span> <span class="n">J_idx</span><span class="p">[::(</span><span class="n">J_idx</span><span class="o">.</span><span class="n">size</span><span class="o">//</span><span class="n">n_samples</span><span class="p">)]</span>
-        <span class="n">I_pts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">c_</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">unravel_index</span><span class="p">(</span><span class="n">I_pts</span><span class="p">,</span> <span class="n">I</span><span class="o">.</span><span class="n">shape</span><span class="p">)][:,</span> <span class="p">::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-        <span class="n">J_pts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">c_</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">unravel_index</span><span class="p">(</span><span class="n">J_pts</span><span class="p">,</span> <span class="n">J</span><span class="o">.</span><span class="n">shape</span><span class="p">)][:,</span> <span class="p">::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">I_pts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">c_</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">unravel_index</span><span class="p">(</span><span class="n">I_idx</span><span class="p">,</span> <span class="n">I</span><span class="o">.</span><span class="n">shape</span><span class="p">)]</span>
+        <span class="n">J_pts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">c_</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">unravel_index</span><span class="p">(</span><span class="n">J_idx</span><span class="p">,</span> <span class="n">J</span><span class="o">.</span><span class="n">shape</span><span class="p">)]</span>
 
-        <span class="c1"># # not really a distance metric, since it does not</span>
-        <span class="c1"># # follow the triangle inequality</span>
-        <span class="c1"># W = (I + J)/2  # W in [0, 1]</span>
-        <span class="c1"># W = W.T</span>
-        <span class="c1"># metric = lambda u, v: (((u - v) * (1+W[tuple(u)]-W[tuple(v)]))**2).sum()</span>
-
+        <span class="c1"># calculate minimum distance assignment</span>
         <span class="n">d</span> <span class="o">=</span> <span class="n">cdist</span><span class="p">(</span><span class="n">I_pts</span><span class="p">,</span> <span class="n">J_pts</span><span class="p">,</span> <span class="n">metric</span><span class="o">=</span><span class="n">metric</span><span class="p">)</span>
         <span class="n">assignment</span> <span class="o">=</span> <span class="n">linear_sum_assignment</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
 
-        <span class="c1"># # We can repeat this process with a metric that</span>
-        <span class="c1"># # makes sure that near I samples are assigned to near</span>
-        <span class="c1"># # J samples</span>
-        <span class="c1"># for _ in range(2):</span>
-        <span class="c1">#     F = (J_pts[assignment[1]] - I_pts)</span>
-
-        <span class="c1">#     # perform nearest neighbors on the parameters</span>
-        <span class="c1">#     _, I_nn = NearestNeighbors(n_neighbors=2, algorithm=&#39;ball_tree&#39;) \</span>
-        <span class="c1">#         .fit(I_pts) \</span>
-        <span class="c1">#         .kneighbors(I_pts)</span>
-        <span class="c1">#     I_nn = I_nn[:, 1]</span>
-
-        <span class="c1">#     def metric2(ui, v):</span>
-        <span class="c1">#         ui = ui[0]</span>
-        <span class="c1">#         u = I_pts[ui]</span>
-        <span class="c1">#         F_cost = (((v - u) - F[I_nn[ui]])**2).sum()</span>
-        <span class="c1">#         return 10*F_cost + (((u - v) * (1+W[tuple(u)]-W[tuple(v)]))**2).sum()</span>
-
-        <span class="c1">#     I_temp = np.tile(np.arange(I_pts.shape[0])[:, np.newaxis], (1, 2))</span>
-        <span class="c1">#     d = cdist(I_temp, J_pts, metric=metric2)</span>
-        <span class="c1">#     assignment = linear_sum_assignment(d)</span>
-
-        <span class="k">def</span> <span class="nf">score</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
-            <span class="c1"># TODO: make it work in &gt;2D</span>
-            <span class="n">I_vals</span> <span class="o">=</span> <span class="n">I</span><span class="p">[</span><span class="n">u</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">u</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span><span class="o">/</span><span class="mi">2</span>
-            <span class="n">J_vals</span> <span class="o">=</span> <span class="n">J</span><span class="p">[</span><span class="n">v</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">v</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span><span class="o">/</span><span class="mi">2</span>
-            <span class="n">scores</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">((((</span><span class="n">u</span> <span class="o">-</span> <span class="n">v</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="n">I_vals</span> <span class="o">+</span> <span class="n">J_vals</span><span class="p">))</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
-            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">scores</span><span class="p">)</span>
-        <span class="n">sc</span> <span class="o">=</span> <span class="n">score</span><span class="p">(</span><span class="n">I_pts</span><span class="p">,</span> <span class="n">J_pts</span><span class="p">[</span><span class="n">assignment</span><span class="p">[</span><span class="mi">1</span><span class="p">]])</span>
-        <span class="k">return</span> <span class="n">sc</span>
+        <span class="k">return</span> <span class="n">d</span><span class="p">[</span><span class="n">assignment</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="n">n_samples</span>
 
     <span class="k">with</span> <span class="n">ThreadPoolExecutor</span><span class="p">()</span> <span class="k">as</span> <span class="n">executor</span><span class="p">:</span>
         <span class="n">futures</span> <span class="o">=</span> <span class="p">[</span>
@@ -157,7 +112,7 @@
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">scores</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="NCC"><a class="viewcode-back" href="../../metrics.html#stabilize2p.metrics.NCC">[docs]</a><span class="k">def</span> <span class="nf">NCC</span><span class="p">(</span><span class="n">video</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<div class="viewcode-block" id="NCC"><a class="viewcode-back" href="../../metrics.html#stabilize2p.metrics.NCC">[docs]</a><span class="k">def</span> <span class="nf">NCC</span><span class="p">(</span><span class="n">video</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="s1">&#39;previous&#39;</span><span class="p">,</span> <span class="n">return_all</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
     <span class="sd">&quot;&quot;&quot;Normalized Cross-Correlation score.</span>
 
 <span class="sd">    This method works on 2D and 3D video inputs.</span>
@@ -168,12 +123,14 @@
     <span class="k">for</span> <span class="n">sl</span> <span class="ow">in</span> <span class="n">gen_batches</span><span class="p">(</span><span class="n">video</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">128</span><span class="p">):</span>
         <span class="c1"># vxm NCC&#39;s assumes Ii, Ji are sized [batch_size, *vol_shape, nb_feats]</span>
         <span class="n">frames</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">convert_to_tensor</span><span class="p">(</span><span class="n">video</span><span class="p">[</span><span class="n">sl</span><span class="p">,</span> <span class="o">...</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="n">sl</span><span class="p">)</span>
-        <span class="n">res</span> <span class="o">+=</span> <span class="p">[</span><span class="n">vxm_ncc</span><span class="o">.</span><span class="n">loss</span><span class="p">(</span><span class="n">frames</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">frames</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])]</span>
-    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">res</span><span class="p">)</span></div>
+        <span class="n">res</span> <span class="o">+=</span> <span class="p">[</span><span class="n">vxm_ncc</span><span class="o">.</span><span class="n">loss</span><span class="p">(</span><span class="n">frames</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">frames</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span><span class="o">.</span><span class="n">ravel</span><span class="p">()]</span>
+    <span class="k">if</span> <span class="n">return_all</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">res</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="MSE"><a class="viewcode-back" href="../../metrics.html#stabilize2p.metrics.MSE">[docs]</a><span class="k">def</span> <span class="nf">MSE</span><span class="p">(</span><span class="n">video</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ref</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;previous&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<div class="viewcode-block" id="MSE"><a class="viewcode-back" href="../../metrics.html#stabilize2p.metrics.MSE">[docs]</a><span class="k">def</span> <span class="nf">MSE</span><span class="p">(</span><span class="n">video</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ref</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;previous&#39;</span><span class="p">,</span> <span class="n">return_all</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
     <span class="sd">&quot;&quot;&quot;Return MSE score with respect to some reference image.</span>
 <span class="sd">    </span>
 <span class="sd">    This method is tested on 2D videos, but should work on 3D videos as well.</span>
@@ -182,19 +139,22 @@
 <span class="sd">    ----------</span>
 <span class="sd">    video : array</span>
 <span class="sd">        Contains the video information</span>
-<span class="sd">    ref : string</span>
+<span class="sd">    ref : string, optional</span>
 <span class="sd">        Reference frame/image to use as approx for round-truth.</span>
-<span class="sd">        Either: previous, median or mean</span>
+<span class="sd">        Either: previous, first, median or mean</span>
 <span class="sd">        Default is &#39;previous&#39;</span>
+<span class="sd">    return_all : bool, optional</span>
+<span class="sd">        whether to return all MSE values for all frames or average the result</span>
+<span class="sd">        accross frames.</span>
+
+<span class="sd">        Defaults to averaging accross frames</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">nb_frame_pixels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">video</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
     
-    <span class="c1"># pre-processing</span>
-    <span class="n">video</span> <span class="o">=</span> <span class="p">(</span><span class="n">video</span> <span class="o">-</span> <span class="n">video</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span>
-    <span class="c1"># video = (video - video.mean(axis=(1, 2))[:, np.newaxis, np.newaxis]) / (1e-6 + video.std(axis=(1, 2))[:, np.newaxis, np.newaxis])</span>
-    
     <span class="k">if</span> <span class="n">ref</span> <span class="o">==</span> <span class="s1">&#39;previous&#39;</span><span class="p">:</span>
         <span class="n">I</span> <span class="o">=</span> <span class="n">video</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">nb_frame_pixels</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="n">ref</span> <span class="o">==</span> <span class="s1">&#39;first&#39;</span><span class="p">:</span>
+        <span class="n">I</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">video</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span> <span class="p">(</span><span class="n">video</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">))</span>
     <span class="k">elif</span> <span class="n">ref</span> <span class="o">==</span> <span class="s1">&#39;median&#39;</span><span class="p">:</span>
         <span class="n">I</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">video</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span> <span class="p">(</span><span class="n">video</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="mi">1</span><span class="p">))</span>
     <span class="k">elif</span> <span class="n">ref</span> <span class="o">==</span> <span class="s1">&#39;mean&#39;</span><span class="p">:</span>
@@ -206,14 +166,18 @@
         <span class="n">J</span> <span class="o">=</span> <span class="n">video</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">nb_frame_pixels</span><span class="p">))</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="n">J</span> <span class="o">=</span> <span class="n">video</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">nb_frame_pixels</span><span class="p">))</span>
-    
-    <span class="k">return</span> <span class="n">mean_squared_error</span><span class="p">(</span><span class="n">I</span><span class="p">,</span> <span class="n">J</span><span class="p">,</span> <span class="n">multioutput</span><span class="o">=</span><span class="s1">&#39;uniform_average&#39;</span><span class="p">)</span></div>
+
+    <span class="k">if</span> <span class="n">return_all</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">J</span><span class="o">-</span><span class="n">I</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">mean_squared_error</span><span class="p">(</span><span class="n">I</span><span class="p">,</span> <span class="n">J</span><span class="p">,</span> <span class="n">multioutput</span><span class="o">=</span><span class="s1">&#39;uniform_average&#39;</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="failure_score"><a class="viewcode-back" href="../../metrics.html#stabilize2p.metrics.failure_score">[docs]</a><span class="k">def</span> <span class="nf">failure_score</span><span class="p">(</span><span class="n">video</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
-                  <span class="n">frame_shape</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">tuple</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-                  <span class="n">threshold</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Return percentage of frames considered &#39;failed&#39; due to remoteness to the center.</span>
+<div class="viewcode-block" id="COM"><a class="viewcode-back" href="../../metrics.html#stabilize2p.metrics.COM">[docs]</a><span class="k">def</span> <span class="nf">COM</span><span class="p">(</span><span class="n">video</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">frame_shape</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">tuple</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">threshold</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">return_all</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Return percentage of frames considered &#39;failed&#39; due to remoteness to the Center of Mass.</span>
 
 <span class="sd">    An important assumption this score makes is that the mean over the centers of mass of</span>
 <span class="sd">    the input ``video`` is suposed to represent a proper center were all axons are</span>
@@ -222,20 +186,17 @@
     <span class="k">if</span> <span class="n">frame_shape</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">frame_shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">video</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">video</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
     <span class="k">if</span> <span class="n">threshold</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">threshold</span> <span class="o">=</span> <span class="mf">0.01</span> <span class="o">*</span> <span class="nb">min</span><span class="p">(</span><span class="o">*</span><span class="n">frame_shape</span><span class="p">)</span>
-
-    <span class="c1"># pre-processing</span>
-    <span class="n">bkg</span> <span class="o">=</span> <span class="n">estimate_background_threshold</span><span class="p">(</span><span class="n">video</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-    <span class="c1"># makes a copy of video, so we don&#39;t modify the argument</span>
-    <span class="n">video</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">video</span><span class="p">,</span> <span class="n">bkg</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-    <span class="n">video</span> <span class="o">=</span> <span class="n">video</span> <span class="o">-</span> <span class="n">bkg</span>
+        <span class="n">threshold</span> <span class="o">=</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="nb">min</span><span class="p">(</span><span class="n">frame_shape</span><span class="p">)</span>
 
     <span class="n">centers</span> <span class="o">=</span> <span class="n">get_centers</span><span class="p">(</span><span class="n">video</span><span class="p">)</span>
 
     <span class="c1"># consider a frame wrong if the axis is &gt; 10% off the mean</span>
     <span class="n">m_center</span> <span class="o">=</span> <span class="n">centers</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
     <span class="n">failures</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">centers</span> <span class="o">-</span> <span class="n">m_center</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">threshold</span><span class="o">**</span><span class="mi">2</span>
-    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">failures</span><span class="p">)</span> <span class="o">/</span> <span class="n">centers</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">failures</span></div>
+    <span class="k">if</span> <span class="n">return_all</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">failures</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">failures</span><span class="p">)</span> <span class="o">/</span> <span class="n">centers</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
 
 
 <span class="c1"># def get_correlation_scores(video: np.ndarray) -&gt; np.ndarray:</span>

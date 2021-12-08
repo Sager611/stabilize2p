@@ -40,14 +40,14 @@ def triangle(image: np.ndarray) -> float:
 
     If ``image`` is a 2D video, this function calculates the threshold at ~1600 frames/s.
 
+    .. seealso::
+
+        Zack, G W et al. “Automatic measurement of sister chromatid exchange frequency.” *The journal of histochemistry and cytochemistry : official journal of the Histochemistry Society* vol. 25,7 (1977): 741-53. doi:10.1177/25.7.70454
+
     Parameters
     ----------
     image : array
         can be a video
-
-    .. seealso::
-
-        Zack, G W et al. “Automatic measurement of sister chromatid exchange frequency.” *The journal of histochemistry and cytochemistry : official journal of the Histochemistry Society* vol. 25,7 (1977): 741-53. doi:10.1177/25.7.70454
     """
     # normalize image to use in cv2.threshold
     low, hig = image.min(), image.max()
