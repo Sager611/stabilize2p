@@ -68,11 +68,12 @@ if args.initial_epoch >= args.epochs:
 if args.gpu:
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 # suppress info and warn TF logs
-# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 
 # ## Imports
 
+import gc
 import time
 import json
 import logging

@@ -5,6 +5,7 @@
 """
 
 import os
+import gc
 import math
 import time
 import itertools
@@ -41,6 +42,7 @@ def vxm_preprocessing(x, affine_transform=True, params=None):
 
     # TODO: does this improve performance?
     x = np.log(1 + x)
+    x = np.clip(x, 0, None)  # numerical errors can make x negative
 
     # normalize
     low = x.min() if params is None else params['low']
@@ -118,7 +120,10 @@ def vxm_data_generator(file_pool,
     if keys is None:
         keys = [None] * len(file_pool)
     else:
-        keys = [np.array(k) for k in keys]
+        keys_ = []
+        for k in keys:
+            keys_ += [None if k is None else np.array(k)]
+        keys = keys_
 
     if len(keys) != len(file_pool):
         raise ValueError('``keys`` and ``file_pool`` must have the same length. '
@@ -149,22 +154,26 @@ def vxm_data_generator(file_pool,
     for key, file_path in zip(keys, file_pool):
         video = tiff.imread(file_path, key=key)
         video, params = vxm_preprocessing(video, affine_transform=False)
-        params['ref'] = _extract_ref(video)
+        params['ref'] = _extract_ref(video).copy()
         del video
 
         # modify output list to contain pre-processing parameters
         store_params.append(params)
+    # force garbage collector
+    gc.collect()
 
     t2 = time.perf_counter()
     _LOGGER.info(f'Calculated "{ref}" fixed references in {t2-t1:.3g}s')
 
     if training:
+        counter = 0
         while True:
             file_i = np.random.choice(len(file_pool))
             key = keys[file_i]
             if key is None:
-                with tiff.TiffFile(file_pool[file_i]) as f:
-                    nb_frames = len(f.pages)
+                f = tiff.TiffFile(file_pool[file_i])
+                nb_frames = len(f.pages)
+                f.close()
                 key = np.arange(nb_frames)
             else:
                 nb_frames = key.size
@@ -198,14 +207,26 @@ def vxm_data_generator(file_pool,
             outputs = [fixed, zero_phi]
 
             yield (inputs, outputs)
+            del x_data, fixed, moving_images, (inputs, outputs)
+
+            # memory limiter
+            counter += batch_size
+            if counter > 1024:
+                counter -= 1024
+                # garbage collector
+                gc.collect()
     else:
         for file_i, (file_path, key) in enumerate(zip(file_pool, keys)):
             if key is None:
-                with tiff.TiffFile(file_pool[file_i]) as f:
-                    nb_frames = len(f.pages)
+                f = tiff.TiffFile(file_pool[file_i])
+                nb_frames = len(f.pages)
+                f.close()
                 key = np.arange(nb_frames)
             else:
                 nb_frames = key.size
+
+            # force garbage collector
+            gc.collect()
 
             params = store_params[file_i]
 
@@ -232,6 +253,10 @@ def vxm_data_generator(file_pool,
                 outputs = [fixed, zero_phi]
 
                 yield (inputs, outputs)
+                del x_data, fixed, moving_images, (inputs, outputs)
+
+        # force garbage collector
+        gc.collect()
 
 
 def get_centers(video: np.ndarray) -> np.ndarray:
@@ -776,13 +801,14 @@ def plot_frame_values_3d(frame: np.ndarray,
     ax.bar3d(x, y, np.zeros_like(dz), size, size, dz, color=rgba, zsort='average', shade=True)
     ax.set_xlabel(r"X")
     ax.set_ylabel(r"Y")
-    ax.set_zlabel(r"pixel value")
+    # ax.set_zlabel(r"pixel value")
     ax.set_title(title)
     if saveto:
         plt.savefig(saveto)
 
 
-def plot_centers(image, radius=None, s=5, ax=None):  
+def plot_centers(image, radius=None, s=5, ax=None, title=r'Centers of mass'):
+    """Plot centers of mass of ``image``."""
     if radius is None:
         radius = 0.1 * min(image.shape[1:])
         print(f'{radius=}')
@@ -799,19 +825,21 @@ def plot_centers(image, radius=None, s=5, ax=None):
     
     ax = plt.subplot(111) if ax is None else ax
 
-    circ = plt.Circle(m_centers, radius, color='r', alpha=.25)
-    ax.add_patch(circ)
+    if radius:
+        circ = plt.Circle(m_centers, radius, color='tab:red', alpha=.25)
+        ax.add_patch(circ)
 
-    ax.scatter(centers[:, 0], centers[:, 1], s=s, alpha=0.5)
-    ax.plot(target[0], target[1], 'ko')
+    ax.scatter(centers[:, 0], centers[:, 1], color='tab:blue', s=s, alpha=0.5)
+    ax.plot(target[0], target[1], 'k*')
     
     (lx, hx), (ly, hy) = ax.get_xlim(), ax.get_ylim()
-    dmax = max(hx-lx, hy-ly)
-    hx, hy = lx+dmax, ly+dmax
-    lx, ly = lx - (dmax - 2*radius), ly - (dmax - 2*radius)
+    dmax = max(hx-m_centers[0], hy-m_centers[1], m_centers[0]-lx, m_centers[1]-ly)
+    hx, hy = m_centers[0]+dmax, m_centers[1]+dmax
+    lx, ly = m_centers[0]-dmax, m_centers[1]-dmax
     ax.set_xlim(lx, hx); ax.set_ylim(ly, hy);
-    
-    plt.title(r'Centers of mass')
+
+    if title:
+        ax.set_title(title)
 
 
 def get_strategy(strategy: str = 'default'):
