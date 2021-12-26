@@ -19,7 +19,7 @@ from sklearn.utils import gen_batches
 from .utils import get_centers
 
 
-def EMD(video: np.ndarray, n_samples: int = 500, metric: str = 'euclidean') -> float:
+def EMD(video: np.ndarray, ref: str = 'previous', n_samples: int = 500, metric: str = 'euclidean') -> float:
     """Earth Moving Distance score (loosely inspired).
     
     This metric is not standard and it's not recomended to use practically, but only
@@ -35,6 +35,10 @@ def EMD(video: np.ndarray, n_samples: int = 500, metric: str = 'euclidean') -> f
     ----------
     video : array
         n-dimensional video
+    ref : string, optional
+        Reference frame/image to use as approx for round-truth.
+        Either: previous or first
+        Default is 'previous'
     n_samples : array
         number of samples to take for each frame.
         Defaults to 100.
@@ -69,11 +73,19 @@ def EMD(video: np.ndarray, n_samples: int = 500, metric: str = 'euclidean') -> f
         return d[assignment].sum() / n_samples
 
     with ThreadPoolExecutor() as executor:
-        futures = [
-            executor.submit(loop, I, J)
-            # for each two consecutive frames
-            for I, J in zip(video[:-1], video[1:])
-        ]
+        if ref == 'previous':
+            futures = [
+                executor.submit(loop, I, J)
+                # for each two consecutive frames
+                for I, J in zip(video[:-1], video[1:])
+            ]
+        elif ref == 'first':
+            futures = [
+                executor.submit(loop, I, video[0])
+                for I in video
+            ]
+        else:
+            raise ValueError(f'Reference "{ref}" is not recognized. Recognized references: previous, first')
         scores = [f.result() for f in futures]
 
     return np.mean(scores)
@@ -90,10 +102,23 @@ def NCC(video: np.ndarray, ref='previous', return_all=False) -> Union[float, np.
     for sl in gen_batches(video.shape[0], 128):
         # vxm NCC's assumes Ii, Ji are sized [batch_size, *vol_shape, nb_feats]
         frames = tf.convert_to_tensor(video[sl, ..., np.newaxis], dtype=np.float32)
-        res += [vxm_ncc.loss(frames[1:], frames[:-1]).numpy().ravel()]
+        if ref == 'previous':
+            res += [vxm_ncc.loss(frames[1:], frames[:-1]).numpy().ravel()]
+        elif ref == 'first':
+            ref_frames = tf.tile(
+                frames[0][np.newaxis, ...],
+                [frames.shape[0]] + [1 for _ in range(len(frames.shape)-1)]
+            )
+            res += [vxm_ncc.loss(frames, ref_frames).numpy().ravel()[0]]
+            del ref_frames
+        else:
+            raise ValueError(f'Reference "{ref}" is not recognized. Recognized references: previous, first')
+        del frames
+
     if return_all:
         return np.concatenate(res)
     else:
+        # print('res:', res)
         return np.mean(res)
 
 
@@ -144,7 +169,7 @@ def COM(video: np.ndarray,
         frame_shape: Optional[tuple] = None,
         threshold: Optional[int] = None,
         return_all=False) -> np.ndarray:
-    """Return percentage of frames considered 'failed' due to remoteness to the Center of Mass.
+    """Return fraction of frames considered 'failed' due to remoteness to the Center of Mass.
 
     An important assumption this score makes is that the mean over the centers of mass of
     the input ``video`` is suposed to represent a proper center were all axons are

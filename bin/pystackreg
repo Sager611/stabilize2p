@@ -28,9 +28,6 @@ METHOD="$3"
 FROM="$(realpath "$FROM")"
 DEST="$(realpath "$DEST")"
 
-eval "$(conda shell.bash hook)"
-conda activate 2p-stabilizer
-
 python -c "
 import time
 import numpy as np

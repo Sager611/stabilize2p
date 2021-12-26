@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
-
-"""
-Voxelmorph training script.
+"""Voxelmorph training script.
  
 Largely inspired by `Voxelmorph's notebook tutorial <https://colab.research.google.com/drive/1WiqyF7dCdnNBIANEY80Pxw_mVz4fyV-S?usp=sharing#scrollTo=Fw6dKBjBPXNp>`_,
 and `Hypermorph training script <https://github.com/voxelmorph/voxelmorph/blob/dev/scripts/tf/train_hypermorph.py>`_.
@@ -11,18 +9,18 @@ and `Hypermorph training script <https://github.com/voxelmorph/voxelmorph/blob/d
 import os
 import argparse
 
-########################## line arguments ##########################
+########################### line arguments ###########################
 
 parser = argparse.ArgumentParser()
 
 # general parameters
 _models_path_default = os.path.abspath(str(__file__) + '/../../models')
-parser.add_argument('--config', default='train-voxelmorph.json',
-                    help='json file to use for extra configuration, like specifying which files to use for training (default: "train-voxelmorph.json")')
+parser.add_argument('--config', default='train-hypermorph.json',
+                    help='json file to use for extra configuration, like specifying which files to use for training (default: "train-hypermorph.json")')
 parser.add_argument('--model-dir', default=_models_path_default,
                     help=f'model output directory (default: {_models_path_default})')
-parser.add_argument('--out-dir', default='train-voxelmorph.out',
-                    help='output directory for plots and predictions (default: "train-voxelmorph.out/")')
+parser.add_argument('--out-dir', default='train-hypermorph.out',
+                    help='output directory for plots and predictions (default: "train-hypermorph.out/")')
 parser.add_argument('--random-seed', type=int, default=1,
                     help='numpy\'s random seed (default: 1)')
 
@@ -37,6 +35,8 @@ parser.add_argument('--gpu', default='',
                     help='visible GPU ID numbers. Goes into "CUDA_VISIBLE_DEVICES" env var (default: use all GPUs)')
 parser.add_argument('--l2', type=float, default=0,
                     help='l2 regularization on the network weights (default: 0)')
+parser.add_argument('--flow-lambda', type=float, default=0.05,
+                    help='lambda regularization parameter on the flow gradient (default: 0.05)')
 parser.add_argument('--initial-epoch', type=int, default=0,
                     help='initial epoch number (default: 0)')
 parser.add_argument('--load-weights', help='optional weights file to initialize with')
@@ -59,7 +59,7 @@ parser.add_argument('--image-loss', default='mse',
 
 args = parser.parse_args()
 
-####################################################################
+######################################################################
 
 # validate arguments
 if args.initial_epoch >= args.epochs:
@@ -209,8 +209,9 @@ def train():
 
 
     # usually, we have to balance the two losses by a hyper-parameter
-    lambda_param = 0.05
+    lambda_param = args.flow_lambda
     loss_weights = [1, lambda_param]
+    print('Loss_weights:', loss_weights)
 
 
     # ## Compile model
