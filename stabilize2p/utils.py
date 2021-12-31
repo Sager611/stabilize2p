@@ -67,6 +67,7 @@ def vxm_preprocessing(x, affine_transform=True, params=None):
     else:
         ref = None
 
+    # return both the pre-processed batch and the pre-processing params
     return x, dict(low=low, hig=hig, bg_thresh=th, ref=ref)
 
 
@@ -105,7 +106,7 @@ def vxm_data_generator(file_pool,
         - 'median': use the median over frames of the video file
         .. note::
 
-            training uses randomly chosen frames as reference.
+            **training** uses randomly chosen frames as reference.
 
         Defaults to 'first'
     keys : list, optional
@@ -127,7 +128,7 @@ def vxm_data_generator(file_pool,
 
     if len(keys) != len(file_pool):
         raise ValueError('``keys`` and ``file_pool`` must have the same length. '
-                         f' {len(keys)=} ; {len(file_pool)}')
+                         f' {len(keys)=} ; {len(file_pool)=}')
 
     # preliminary sizing
     vol_shape = tiff.imread(file_pool[0], key=0).shape[1:]  # extract data shape
@@ -152,14 +153,17 @@ def vxm_data_generator(file_pool,
         raise ValueError(f'``ref`` arg must be: first, last, mean or median. Provided: {ref}')
 
     for key, file_path in zip(keys, file_pool):
-        video = tiff.imread(file_path, key=key)
+        # video = tiff.imread(file_path, key=key)
+        video = tiff.imread(file_path, key=[0, 1])
         video, params = vxm_preprocessing(video, affine_transform=False)
         params['ref'] = _extract_ref(video).copy()
         del video
 
         # modify output list to contain pre-processing parameters
         store_params.append(params)
-    # force garbage collector
+    # force garbage collector.
+    # It seems like tifffile does not correctly free
+    # memory, so we do it manually
     gc.collect()
 
     t2 = time.perf_counter()

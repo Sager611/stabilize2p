@@ -1,0 +1,19 @@
+{
+    "training_pool": [
+        "../data/200901_G23xU1/Fly1/Fly1/001_coronal/2p/denoised_red.tif",
+        "../data/200901_G23xU1/Fly1/Fly1/002_coronal/2p/denoised_red.tif",
+        "../data/200901_G23xU1/Fly1/Fly1/003_coronal/2p/denoised_red.tif",
+        "../data/200901_G23xU1/Fly1/Fly1/004_coronal/2p/denoised_red.tif",
+        "../data/200901_G23xU1/Fly1/Fly1/006_coronal/2p/denoised_red.tif",
+        "../data/200901_G23xU1/Fly1/Fly1/007_coronal/2p/denoised_red.tif",
+        "../data/200901_G23xU1/Fly1/Fly1/008_coronal/2p/denoised_red.tif",
+        "../data/200901_G23xU1/Fly1/Fly1/009_coronal/2p/denoised_red.tif"
+    ],
+    "validation_pool": [
+        "../data/200901_G23xU1/Fly1/Fly1/005_coronal/2p/denoised_red.tif"
+    ],
+    "reference_losses": {
+        "ofco_MSE": 0.02287466134027828,
+        "pysreg_MSE": 0.030583582610999725
+    }
+}
