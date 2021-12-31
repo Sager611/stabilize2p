@@ -125,26 +125,14 @@ plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 # logging.getLogger('stabilize2p').setLevel(logging.ERROR)
 
 
-def frame_gen(video, scores=None, lt=0.9):
+def frame_gen(video):
     low, hig = video[0].min(), video[1].max()
-    if scores is not None:
-        for img, score in zip(video, scores):
-            img = (img - low) / (hig - low) * 255
-            img[img < 0] = 0
-            img[img > 255] = 255
-            img = img.astype(np.uint8)
-            if score < lt:
-                img[:50, :50] = 255
-            else:
-                img[:50, :50] = 0
-            yield img
-    else:
-        for img in video:
-            img = (img - low) / (hig - low) * 255
-            img[img < 0] = 0
-            img[img > 255] = 255
-            img = img.astype(np.uint8)
-            yield img
+    for img in video:
+        img = (img - low) / (hig - low) * 255
+        img[img < 0] = 0
+        img[img > 255] = 255
+        img = img.astype(np.uint8)
+        yield img
 
 # ## Setup
 
@@ -165,8 +153,8 @@ os.makedirs(args.out_dir, exist_ok=True)
 # strategy = tf.distribute.OneDeviceStrategy(device="/gpu:0")
 
 # unet architecture
-enc_nf = args.enc if args.enc else [16, 32, 32, 32]  # [16, 32, 32, 128, 128]
-dec_nf = args.dec if args.dec else [32, 32, 32, 32, 32, 16, 16]  # [128, 128, 32, 32, 32, 16, 16]
+enc_nf = args.enc if args.enc else [16, 32, 32, 32]
+dec_nf = args.dec if args.dec else [32, 32, 32, 32, 32, 16, 16]
 
 # weight save path
 if args.model_dir.endswith('.h5'):
@@ -193,9 +181,6 @@ if config['validation_pool']:
 else:
     val_generator = None
     validation_steps = None
-# TODO: DELETEME
-val_generator = None
-validation_steps = None
 #
 t2 = time.perf_counter()
 _LOGGER.info(f'Initialized generators in {t2-t1:.2f}s')
@@ -327,8 +312,8 @@ def train():
                          initial_epoch=args.initial_epoch,
                          epochs=args.epochs,
                          steps_per_epoch=args.steps_per_epoch,
-                         # validation_data=val_generator, validation_steps=validation_steps,
-                         # validation_freq=args.validation_freq,
+                         validation_data=val_generator, validation_steps=validation_steps,
+                         validation_freq=args.validation_freq,
                          callbacks=[save_callback],
                          verbose=1);
 

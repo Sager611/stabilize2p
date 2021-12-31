@@ -92,6 +92,9 @@ from sklearn.utils import gen_batches
 
 from stabilize2p.utils import make_video, get_strategy, vxm_data_generator
 
+# logger
+_LOGGER = logging.getLogger('stabilize2p')
+
 # matplotlib Font size
 plt.style.use('default')
 
@@ -111,28 +114,14 @@ plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 # logging.getLogger('stabilize2p').setLevel(logging.ERROR)
 
 
-def frame_gen(video, scores=None, lt=0.9):
-    std = video[0].std()
-    print('calculated std')
-    low = np.quantile(video[0], q=0.01)
-    if scores is not None:
-        for img, score in zip(video, scores):
-            img = (img - low) / std * 255 / 3
-            img[img < 0] = 0
-            img[img > 255] = 255
-            img = img.astype(np.uint8)
-            if score < lt:
-                img[:50, :50] = 255
-            else:
-                img[:50, :50] = 0
-            yield img
-    else:
-        for img in video:
-            img = (img - low) / std * 255 / 3
-            img[img < 0] = 0
-            img[img > 255] = 255
-            img = img.astype(np.uint8)
-            yield img
+def frame_gen(video):
+    low, hig = video[0].min(), video[1].max()
+    for img in video:
+        img = (img - low) / (hig - low) * 255
+        img[img < 0] = 0
+        img[img > 255] = 255
+        img = img.astype(np.uint8)
+        yield img
 
 
 # ## Setup
@@ -156,7 +145,10 @@ enc_nf = args.enc if args.enc else [16, 32, 32, 128, 128]
 dec_nf = args.dec if args.dec else [128, 128, 32, 32, 32, 16, 16]
 
 # weight save path
-save_filename = args.model_dir + '/vxm_drosophila_2d_{epoch:04d}.h5'
+if args.model_dir.endswith('.h5'):
+    save_filename = args.model_dir
+else:
+    save_filename = args.model_dir + '/vxm_drosophila_2d_{epoch:04d}.h5'
 
 
 class L2Loss():
@@ -186,13 +178,13 @@ def train():
                 layer.kernel_regularizer = l2
                 layer.add_loss(L2Loss(l2, layer.kernel))
     
-        print('losses:', vxm_model.losses)
+        _LOGGER.info('losses:', vxm_model.losses)
         assert len(vxm_model.losses) > 0, 'Could not apply l2 regularization'
 
     vxm_model.summary(line_length = 180)
 
-    print('input shape: ', ', '.join([str(t.shape) for t in vxm_model.inputs]))
-    print('output shape:', ', '.join([str(t.shape) for t in vxm_model.outputs]))
+    _LOGGER.info('input shape: ', ', '.join([str(t.shape) for t in vxm_model.inputs]))
+    _LOGGER.info('output shape:', ', '.join([str(t.shape) for t in vxm_model.outputs]))
 
     # ## Loss
 
@@ -227,7 +219,7 @@ def train():
         val_generator = cycle(val_generator)
 
         nb_validation_frames = np.sum([len(tiff.TiffFile(file_path).pages) for file_path in config['validation_pool']])
-        print(f'{nb_validation_frames=}')
+        _LOGGER.info(f'{nb_validation_frames=}')
         validation_steps = (nb_validation_frames // args.batch_size)
     else:
         val_generator = None
@@ -236,7 +228,7 @@ def train():
     # save model every 100 epochs
     save_callback = tf.keras.callbacks.ModelCheckpoint(save_filename, save_freq=args.steps_per_epoch*100)
 
-    print(f'Training for {args.epochs} epochs')
+    _LOGGER.info(f'Training for {args.epochs} epochs')
     hist = vxm_model.fit(train_generator,
                          initial_epoch=args.initial_epoch,
                          epochs=args.epochs,
@@ -286,10 +278,10 @@ def train():
     # save to file
     with open(args.out_dir + '/history.pkl', 'wb') as file:
         pickle.dump({'epoch': hist.epoch, 'history': hist.history}, file)
-        print('saved history', flush=True)
+        _LOGGER.info('saved history', flush=True)
 
     plot_history(hist)
-    print('plotted history', flush=True)
+    _LOGGER.info('plotted history', flush=True)
 
     # no more need for the model
     del vxm_model
@@ -306,7 +298,7 @@ if not args.predict:
 
 # if there are validation tests
 if config['validation_pool']:
-    print('starting validation..', flush=True)
+    _LOGGER.info('starting validation..', flush=True)
     t1 = time.perf_counter()
     
     # build model using VxmDense
@@ -316,7 +308,7 @@ if config['validation_pool']:
     # load weights
     path = save_filename.format(epoch=args.epochs)
     vxm_model.load_weights(path)
-    print(f'loaded model from: {path}', flush=True)
+    _LOGGER.info(f'loaded model from: {path}', flush=True)
     
     # predict validation-set
     # TODO: make multiple validations possible!
@@ -346,7 +338,7 @@ if config['validation_pool']:
     val_pred[0] = val_pred[0] + params['bg_thresh']
 
     t2 = time.perf_counter()
-    print(f'Predicted validation in {t2-t1:.2f}s | '
+    _LOGGER.info(f'Predicted validation in {t2-t1:.2f}s | '
           f'{val_pred[0].shape[0]/(t2-t1):,.0f} frames/s | {(t2-t1)/val_pred[0].shape[0]:.4g} s/frame',
           flush=True)
 
@@ -360,4 +352,4 @@ if config['validation_pool']:
     
     # generate validation video
     make_video(args.out_dir + '/validation-video', frame_gen(val_pred[0]))
-    print('generated validation video', flush=True)
+    _LOGGER.info('generated validation video', flush=True)
