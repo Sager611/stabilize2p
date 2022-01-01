@@ -32,28 +32,25 @@ parser.add_argument('--epochs', type=int, default=200,
                     help='number of training epochs (default: 200)')
 parser.add_argument('--steps-per-epoch', type=int, default=100,
                     help='steps per epoch (default: 100)')
-parser.add_argument('--batch-size', type=int, default=8,
-                    help='training batch size, aka number of frames (default: 8)')
-# parser.add_argument('--gpu', type=str, default='',
-#                     help='visible GPU ID numbers. Goes into "CUDA_VISIBLE_DEVICES" env var (default: use all GPUs)')
+parser.add_argument('--batch-size', type=int, default=1,
+                    help='training batch size, aka number of frames (default: 1)')
+parser.add_argument('--gpu', default='0', help='GPU ID numbers (default: 0)')
 parser.add_argument('--l2', type=float, default=0,
                     help='l2 regularization on the network weights (default: 0)')
 parser.add_argument('--initial-epoch', type=int, default=0,
                     help='initial epoch number (default: 0)')
 parser.add_argument('--load-weights', help='optional weights file to initialize with')
-parser.add_argument('--predict', action='store_true',
-                    help='do not train, just load the model and predict on the dataset')
 parser.add_argument('--ref', default='first',
                     help='reference frame to use when training. Either: first, last, mean or median (default: first)')
 parser.add_argument('--validation-freq', type=int, default=10,
-                    help='how often (in epochs) to calculate the validation loss (default: 10)')
+                    help='how often (in epochs) to calculate the validation loss. Set to -1 to disable (default: 10)')
 parser.add_argument('--lr', type=float, default=1e-4, help='learning rate (default: 1e-4)')
 
 # network architecture parameters
 parser.add_argument('--enc', type=int, nargs='+',
-                    help='list of unet encoder filters (default: 16 32 32 128 128)')
+                    help='list of unet encoder filters (default: 16 32 32 32)')
 parser.add_argument('--dec', type=int, nargs='+',
-                    help='list of unet decorder filters (default: 128 128 32 32 32 16 16)')
+                    help='list of unet decorder filters (default: 32 32 32 32 32 16 16)')
 parser.add_argument('--oversample-rate', type=float, default=0.2,
                     help='hyperparameter end-point over-sample rate (default 0.2)')
 parser.add_argument('--int-steps', type=int, default=7,
@@ -75,8 +72,6 @@ args = parser.parse_args()
 if args.initial_epoch >= args.epochs:
     raise ValueError('--initial-epoch must be strictly lower than --epochs')
 
-# if args.gpu:
-#     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 # suppress info and warn TF logs
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -96,12 +91,13 @@ import numpy as np
 import matplotlib
 import voxelmorph as vxm
 import tensorflow as tf
+import tensorflow.compat.v1 as tf1
 import neurite as ne
 from matplotlib import pyplot as plt
 from sklearn.utils import gen_batches
 from tensorflow.keras import backend as K
 
-from stabilize2p.utils import make_video, get_strategy, vxm_data_generator
+from stabilize2p.utils import make_video, get_strategy, vxm_data_generator, hypermorph_dataset
 
 # logger
 _LOGGER = logging.getLogger('stabilize2p')
@@ -137,8 +133,8 @@ def frame_gen(video):
 # ## Setup
 
 # solves Hypermorph's compatibility issues
-tf.compat.v1.disable_eager_execution()
-tf.compat.v1.experimental.output_all_intermediates(True)
+tf1.disable_eager_execution()
+tf1.experimental.output_all_intermediates(True)
 
 # read configuration file
 config = defaultdict()
@@ -149,8 +145,12 @@ np.random.seed(args.random_seed)
 
 os.makedirs(args.out_dir, exist_ok=True)
 
-# strategy = get_strategy('GPU')
+# strategy = get_strategy('default')
 # strategy = tf.distribute.OneDeviceStrategy(device="/gpu:0")
+# tensorflow device handling
+device, nb_devices = vxm.tf.utils.setup_device(args.gpu)
+assert np.mod(args.batch_size, nb_devices) == 0, \
+    'Batch size (%d) should be a multiple of the nr of gpus (%d)' % (args.batch_size, nb_devices)
 
 # unet architecture
 enc_nf = args.enc if args.enc else [16, 32, 32, 32]
@@ -160,18 +160,36 @@ dec_nf = args.dec if args.dec else [32, 32, 32, 32, 32, 16, 16]
 if args.model_dir.endswith('.h5'):
     save_filename = args.model_dir
 else:
-    save_filename = args.model_dir + '/vxm_drosophila_2d_{epoch:04d}.h5'
+    save_filename = args.model_dir + '/hypm_drosophila_2d_{epoch:04d}.h5'
 
 # data generators
 _LOGGER.info('Initializing generators..')
 t1 = time.perf_counter()
-base_train_generator = vxm_data_generator(config['training_pool'], batch_size=args.batch_size, ref=args.ref)
-if config['validation_pool']:
-    val_generator = vxm_data_generator(config['validation_pool'], batch_size=args.batch_size, ref=args.ref, training=False)
+
+inshape = tiff.imread(config['training_pool'][0], key=0).shape
+nfeats = 1
+
+base_train_generator = vxm_data_generator(
+    config['training_pool'],
+    batch_size=args.batch_size,
+    ref=args.ref)
+train_dataset = hypermorph_dataset(base_train_generator,
+                                   train=True,
+                                   inshape=inshape,
+                                   nfeats=nfeats)
+
+if config['validation_pool'] and args.validation_freq > 0:
+    base_val_generator = vxm_data_generator(
+        config['validation_pool'],
+        batch_size=args.batch_size,
+        ref=args.ref, training=False)
     # when training=False, the generator generates the frames once,
-    # but tensorflow requires it to cycle in order to use it multiple
-    # times
-    val_generator = cycle(val_generator)
+    # but tensorflow requires it to cycle in order to use it multiple times
+    base_val_generator = cycle(base_val_generator)
+    val_dataset = hypermorph_dataset(base_val_generator,
+                                     train=False,
+                                     inshape=inshape,
+                                     nfeats=nfeats)
 
     nb_validation_frames = np.sum([len(tiff.TiffFile(file_path).pages) for file_path in config['validation_pool']])
     validation_steps = (nb_validation_frames // args.batch_size)
@@ -179,55 +197,10 @@ if config['validation_pool']:
     gc.collect()
     _LOGGER.info(f'{nb_validation_frames=}')
 else:
-    val_generator = None
+    val_dataset = None
     validation_steps = None
-#
 t2 = time.perf_counter()
 _LOGGER.info(f'Initialized generators in {t2-t1:.2f}s')
-
-# random hyperparameter generator
-def random_hyperparam():
-    if np.random.rand() < args.oversample_rate:
-        return np.random.choice([0, 1])
-    else:
-        return np.random.rand()
-
-# hyperparameter generator extension
-def hyp_generator(base_generator):
-    def _generator():
-        dt = np.float32
-        while True:
-            hyp = np.expand_dims([random_hyperparam() for _ in range(args.batch_size)], -1)
-            inputs, outputs = next(base_generator)
-            inputs = (*inputs, hyp)
-            inputs = tuple(np.array(v, dtype=dt) for v in inputs)
-            outputs = tuple(np.array(v, dtype=dt) for v in outputs)
-            # _LOGGER.info(f'yielding inputs:  ' + ', '.join([str(v.shape) for v in inputs]) + '..')
-            # _LOGGER.info(f'yielding outputs: ' + ', '.join([str(v.shape) for v in outputs]) + '..')
-            # _LOGGER.info(f'type of inputs:  ' + ', '.join([str(type(v)) for v in inputs]))
-            # _LOGGER.info(f'type of outputs: ' + ', '.join([str(type(v)) for v in outputs]))
-            yield (inputs, outputs)
-    return _generator
-
-# retrieve shape
-inshape = tiff.imread(config['training_pool'][0], key=0).shape
-nfeats = 1
-
-train_dataset = tf.data.Dataset.from_generator(
-    hyp_generator(base_train_generator),
-    output_signature=(
-        (
-            tf.TensorSpec(shape=(args.batch_size, *inshape, nfeats), dtype=tf.float32),
-            tf.TensorSpec(shape=(args.batch_size, *inshape, nfeats), dtype=tf.float32),
-            tf.TensorSpec(shape=(args.batch_size, 1), dtype=tf.float32)
-        ),
-        (
-            tf.TensorSpec(shape=(args.batch_size, *inshape, nfeats), dtype=tf.float32),
-            tf.TensorSpec(shape=(args.batch_size, inshape[1], nfeats), dtype=tf.float32)
-        )
-    )
-)
-train_dataset = train_dataset.shuffle(buffer_size=1)
 
 # # (SLOW) extract shape and number of features from sampled input
 # sample_shape = next(train_dataset)[0][0].shape
@@ -246,7 +219,6 @@ class L2Loss():
 
 def train():
     # build model using VxmDense
-    # with strategy.scope():
     vxm_model = vxm.networks.HyperVxmDense(
         inshape=inshape,
         nb_unet_features=[enc_nf, dec_nf],
@@ -299,20 +271,23 @@ def train():
         hyp = tf.squeeze(vxm_model.references.hyper_val)
         return hyp * vxm.losses.Grad('l2', loss_mult=args.int_downsize).loss(y_true, y_pred)
 
+    # multi-gpu support
+    if nb_devices > 1:
+        save_callback = vxm.networks.ModelCheckpointParallel(save_filename)
+        vxm_model = tf.keras.utils.multi_gpu_model(vxm_model, gpus=nb_devices)
+    else:
+        # save model every 100 epochs
+        save_callback = tf.keras.callbacks.ModelCheckpoint(save_filename, save_freq=args.steps_per_epoch*100)
 
     # ## Compile model
-    # with strategy.scope():
     vxm_model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=args.lr), loss=[image_loss, grad_loss])
-
-    # save model every 100 epochs
-    save_callback = tf.keras.callbacks.ModelCheckpoint(save_filename, save_freq=args.steps_per_epoch*100)
 
     _LOGGER.info(f'Training for {args.epochs} epochs')
     hist = vxm_model.fit(train_dataset,
                          initial_epoch=args.initial_epoch,
                          epochs=args.epochs,
                          steps_per_epoch=args.steps_per_epoch,
-                         validation_data=val_generator, validation_steps=validation_steps,
+                         validation_data=val_dataset, validation_steps=validation_steps,
                          validation_freq=args.validation_freq,
                          callbacks=[save_callback],
                          verbose=1);
@@ -369,67 +344,4 @@ def train():
 
 
 # ## Training
-if not args.predict:
-    train()
-
-
-# ## Validation
-
-# if there are validation tests
-if config['validation_pool']:
-    _LOGGER.info('starting validation..')
-    t1 = time.perf_counter()
-    
-    # build model using VxmDense
-    with strategy.scope():
-        vxm_model = vxm.networks.VxmDense(inshape, [enc_nf, dec_nf], int_steps=0)
-    
-    # load weights
-    path = save_filename.format(epoch=args.epochs)
-    vxm_model.load_weights(path)
-    _LOGGER.info(f'loaded model from: {path}')
-    
-    # predict validation-set
-    # TODO: make multiple validations possible!
-    store_params = []
-    val_generator = vxm_data_generator(config['validation_pool'][0],
-                                       batch_size=args.batch_size,
-                                       training=False,
-                                       ref=args.ref,
-                                       store_params=store_params)
-    
-    # TODO: concatenation is not a good idea for RAM usage!
-    # can't do this or we run out of memory!
-    # val_pred = vxm_model.predict(val_generator)
-    # prediction
-    val_pred = []
-    for (val_input, _) in val_generator:
-        val_pred += [vxm_model.predict(val_input, verbose=2)]
-    val_pred = [
-        np.concatenate([a[0] for a in val_pred], axis=0),
-        np.concatenate([a[1] for a in val_pred], axis=0)
-    ]
-
-    # undo pre-processing
-    params = store_params[0]
-    h, l = params.pop('hig'), params.pop('low')
-    val_pred[0] = val_pred[0] * (h - l) + l
-    val_pred[0] = np.exp(val_pred[0]) - 1
-    val_pred[0] = val_pred[0] + params['bg_thresh']
-
-    t2 = time.perf_counter()
-    _LOGGER.info(f'Predicted validation in {t2-t1:.2f}s | '
-                 f'{val_pred[0].shape[0]/(t2-t1):,.0f} frames/s | '
-                 f'{(t2-t1)/val_pred[0].shape[0]:.4g} s/frame')
-
-    np.save(args.out_dir + '/validation-video', val_pred[0])
-    np.save(args.out_dir + '/validation-flow', val_pred[1])
-    
-    # visualize flow
-    i, j = val_pred[1].shape[1]//2, val_pred[1].shape[2]//2
-    ne.plot.flow([val_pred[1][0, i:i+100, j:j+100, :].squeeze()], width=16, show=False);
-    plt.savefig(args.out_dir + '/example-flow.svg')
-    
-    # generate validation video
-    make_video(args.out_dir + '/validation-video', frame_gen(val_pred[0]))
-    _LOGGER.info('generated validation video', )
+train()

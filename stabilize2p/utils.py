@@ -34,6 +34,72 @@ from . import threshold
 _LOGGER = logging.getLogger('stabilize2p')
 
 
+
+def _hypm_random_hyperparam(oversample_rate: float):
+    # Hypermorph's random parameter generator
+    if np.random.rand() < oversample_rate:
+        return np.random.choice([0.0, 1.0])
+    else:
+        return np.random.rand()
+
+
+def hypermorph_dataset(base_generator, train: bool, inshape: tuple, nfeats: int = 1, oversample_rate: float = 0.2):
+    """Return dataset based on Hypermorph's hyperparameter generator extension.
+
+    Parameters
+    ----------
+    base_generator : python generator
+        should yield the same objects as :func:`stabilize2p.utils.vxm_preprocessing`
+    train : bool
+        whether this generator is for training.
+        If ``False``, the hyperparameter for the batch will be a linear span in [0, 1]
+        across the yielded batch.
+    inshape : tuple of int
+        shape of the inputs to the model
+    nfeats : int, optional
+        number of features. Defaults to 1
+    oversample_rate : float, optional
+        oversample rate for Hypermorph's random parameter generator. Defaults to 0.2
+
+    Returns
+    -------
+    tf Dataset
+        Dataset that generates (inputs, outputs) for Hypermorph models
+    """
+    def _generator():
+        dt = np.float32
+        for inputs, outputs in (base_generator):
+            if train:
+                hyp = np.expand_dims([_hypm_random_hyperparam(oversample_rate) for _ in range(inputs[0].shape[0])], -1)
+            else:
+                hyp = np.linspace(0, 1, inputs[0].shape[0])[:, np.newaxis]
+            inputs = (*inputs, hyp)
+            inputs = tuple(np.array(v, dtype=dt) for v in inputs)
+            outputs = tuple(np.array(v, dtype=dt) for v in outputs)
+            yield (inputs, outputs)
+            
+    # output_signature = ((moving, fixed, hyp), (moved, flow))
+    output_signature = (
+        (
+            tf.TensorSpec(shape=(None, *inshape, nfeats), dtype=tf.float32),
+            tf.TensorSpec(shape=(None, *inshape, nfeats), dtype=tf.float32),
+            tf.TensorSpec(shape=(None, 1), dtype=tf.float32)
+        ),
+        (
+            tf.TensorSpec(shape=(None, *inshape, nfeats), dtype=tf.float32),
+            tf.TensorSpec(shape=(None, inshape[1], nfeats), dtype=tf.float32)
+        )
+    )
+
+    dataset_options = tf.data.Options()
+    dataset_options.experimental_distribute.auto_shard_policy = \
+        tf.data.experimental.AutoShardPolicy.OFF
+
+    return tf.data.Dataset.from_generator(_generator, output_signature=output_signature) \
+        .shuffle(buffer_size=1) \
+        .with_options(dataset_options)
+
+
 def vxm_preprocessing(x, affine_transform=True, params=None):
     # "remove' background. Threshold calculation should be ~1600 frames/s
     th = threshold.triangle(x) if params is None else params['bg_thresh'] 
@@ -153,18 +219,18 @@ def vxm_data_generator(file_pool,
         raise ValueError(f'``ref`` arg must be: first, last, mean or median. Provided: {ref}')
 
     for key, file_path in zip(keys, file_pool):
-        # video = tiff.imread(file_path, key=key)
-        video = tiff.imread(file_path, key=[0, 1])
+        video = tiff.imread(file_path, key=key)
         video, params = vxm_preprocessing(video, affine_transform=False)
         params['ref'] = _extract_ref(video).copy()
+
         del video
+        # force garbage collector.
+        # It seems like tifffile does not correctly free
+        # memory, so we do it manually
+        gc.collect()
 
         # modify output list to contain pre-processing parameters
         store_params.append(params)
-    # force garbage collector.
-    # It seems like tifffile does not correctly free
-    # memory, so we do it manually
-    gc.collect()
 
     t2 = time.perf_counter()
     _LOGGER.info(f'Calculated "{ref}" fixed references in {t2-t1:.3g}s')

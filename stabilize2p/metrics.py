@@ -103,22 +103,24 @@ def NCC(video: np.ndarray, ref='previous', return_all=False) -> Union[float, np.
         # vxm NCC's assumes Ii, Ji are sized [batch_size, *vol_shape, nb_feats]
         frames = tf.convert_to_tensor(video[sl, ..., np.newaxis], dtype=np.float32)
         if ref == 'previous':
-            res += [vxm_ncc.loss(frames[1:], frames[:-1]).numpy().ravel()]
+            res += [vxm_ncc.loss(frames[1:], frames[:-1]).numpy().squeeze()]
         elif ref == 'first':
             ref_frames = tf.tile(
                 frames[0][np.newaxis, ...],
                 [frames.shape[0]] + [1 for _ in range(len(frames.shape)-1)]
             )
-            res += [vxm_ncc.loss(frames, ref_frames).numpy().ravel()[0]]
+            res += [vxm_ncc.loss(frames, ref_frames).numpy().squeeze()]
             del ref_frames
         else:
             raise ValueError(f'Reference "{ref}" is not recognized. Recognized references: previous, first')
         del frames
 
+    res = np.concatenate(res)
+
     if return_all:
-        return np.concatenate(res)
+        return res
     else:
-        # print('res:', res)
+        # print(f'{res.shape=}')
         return np.mean(res)
 
 

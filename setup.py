@@ -34,7 +34,8 @@ setuptools.setup(
         'scipy',
         'pystackreg',
         # tensorflow >= 2.4.0 is automatically built with cuda support for Nvidia GPUs
-        'tensorflow>=2.4.1',
+        # 'tensorflow>=2.4.1',
+        'tensorflow>=2.8.0rc0',
         'voxelmorph'
     ]
 )
