@@ -49,7 +49,7 @@ def hypermorph_dataset(base_generator, train: bool, inshape: tuple, nfeats: int 
     Parameters
     ----------
     base_generator : python generator
-        should yield the same objects as :func:`stabilize2p.utils.vxm_preprocessing`
+        should yield the same objects as :func:`stabilize2p.utils.vxm_data_generator`
     train : bool
         whether this generator is for training.
         If ``False``, the hyperparameter for the batch will be a linear span in [0, 1]
@@ -843,10 +843,10 @@ def plot_frame_values_3d(frame: np.ndarray,
     pool : int, optional
         size of the averaging pool
     size : int, optional
-        length of the bars in the x and y axes. Defaults to `1`
+        length of the bars in the x and y axes. Defaults to 1
     cmap : string, optional
     saveto : string, optional
-        path to save the plot to. Defaults to `None`
+        path to save the plot to. Defaults to None
     """
     if ax is None:
         fig = plt.figure(figsize=(16, 12))
