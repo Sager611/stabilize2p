@@ -46,6 +46,10 @@ parser.add_argument('--ref', default='first',
                     help='reference frame to use when training. Either: first, last, mean or median (default: first)')
 parser.add_argument('--validation-freq', type=int, default=10,
                     help='how often (in epochs) to calculate the validation loss (default: 10)')
+parser.add_argument('--lr', type=float, nargs='+',
+                    default=[1e-3, 1e-5],
+                    help='learning rate. You can optionally provide this argument as'
+                    ' `initial_lr final_lr` and exponential decay will be applied (default: 1e-3 1e-5)')
 
 # network architecture parameters
 parser.add_argument('--enc', type=int, nargs='+',
@@ -54,8 +58,8 @@ parser.add_argument('--dec', type=int, nargs='+',
                     help='list of unet decorder filters (default: 128 128 32 32 32 16 16)')
 
 # loss hyperparameters
-parser.add_argument('--image-loss', default='mse',
-                    help='image reconstruction loss - can be mse or ncc (default: mse)')
+parser.add_argument('--image-loss', default='ncc',
+                    help='image reconstruction loss - can be mse or ncc (default: ncc)')
 parser.add_argument('--lambda-loss', type=float, default=0.5,
                     help='weighting for the losses. Image similarity loss will be weighted by `(1-lambda)` '
                     'while flow smoothness loss will be weighted by `lambda` (default: 0.5)')
@@ -129,6 +133,8 @@ def frame_gen(video):
 
 # ## Setup
 
+_LOGGER.info('script args: ' + str(vars(args)))
+
 # read configuration file
 config = defaultdict()
 with open(args.config, 'r') as _config_f:
@@ -181,13 +187,13 @@ def train():
                 layer.kernel_regularizer = l2
                 layer.add_loss(L2Loss(l2, layer.kernel))
     
-        _LOGGER.info('losses:', vxm_model.losses)
+        _LOGGER.info('losses:' + str(vxm_model.losses))
         assert len(vxm_model.losses) > 0, 'Could not apply l2 regularization'
 
     vxm_model.summary(line_length = 180)
 
-    _LOGGER.info('input shape: ', ', '.join([str(t.shape) for t in vxm_model.inputs]))
-    _LOGGER.info('output shape:', ', '.join([str(t.shape) for t in vxm_model.outputs]))
+    _LOGGER.info('input shape:  ' + ', '.join([str(t.shape) for t in vxm_model.inputs]))
+    _LOGGER.info('output shape: ' + ', '.join([str(t.shape) for t in vxm_model.outputs]))
 
     # ## Loss
 
@@ -206,10 +212,33 @@ def train():
     # usually, we have to balance the two losses by a hyper-parameter
     loss_weights = [1-args.lambda_loss, args.lambda_loss]
 
+    if len(args.lr) == 1:
+        learning_rate = args.lr[0]
+        get_metrics = lambda _: None
+    else:
+        def get_metrics(optimizer):
+            def lr(y_true, y_pred):
+                return optimizer._decayed_lr(tf.float32)
+            return [lr]
+
+        # lr scheduler
+        lr_decay_factor = (args.lr[1] / args.lr[0])**(1/args.epochs)
+        nb_train_frames = np.sum([len(tiff.TiffFile(path).pages) for path in config['training_pool']])
+        gc.collect()
+        learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(
+                initial_learning_rate=args.lr[0],
+                decay_steps=int(nb_train_frames/args.batch_size),
+                decay_rate=lr_decay_factor,
+                staircase=True)
 
     # ## Compile model
     with strategy.scope():
-        vxm_model.compile(optimizer='Adam', loss=losses, loss_weights=loss_weights)
+        optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+        metrics = get_metrics(optimizer)
+        vxm_model.compile(optimizer=optimizer,
+                          loss=losses,
+                          loss_weights=loss_weights,
+                          metrics=metrics)
 
     # data generators
     train_generator = vxm_data_generator(config['training_pool'], batch_size=args.batch_size, ref=args.ref)
@@ -274,16 +303,23 @@ def train():
         plt.xlabel('epoch')
         plt.title('Training loss')
         plt.legend()
+        # y-axis limits to see losses better
+        losses = np.concatenate([l for l in hist.history.values()] + [[v] for v in config["reference_losses"].values()])
+        low = np.min(losses)
+        hig = np.quantile(losses, 0.90)
+        ds = hig - low
+        plt.ylim(low + 0.02*np.sign(low)*ds, hig + 0.01*np.sign(hig)*ds)
+        # save plot
         plt.savefig(args.out_dir + '/history.svg')
 
 
     # save to file
     with open(args.out_dir + '/history.pkl', 'wb') as file:
         pickle.dump({'epoch': hist.epoch, 'history': hist.history}, file)
-        _LOGGER.info('saved history', flush=True)
+        _LOGGER.info('saved history')
 
     plot_history(hist)
-    _LOGGER.info('plotted history', flush=True)
+    _LOGGER.info('plotted history')
 
     # no more need for the model
     del vxm_model

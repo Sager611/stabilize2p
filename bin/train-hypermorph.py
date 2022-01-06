@@ -298,7 +298,13 @@ def train():
     # ## Compile model
     if len(args.lr) == 1:
         learning_rate = args.lr[0]
+        get_metrics = lambda _: None
     else:
+        def get_metrics(optimizer):
+            def lr(y_true, y_pred):
+                return optimizer._decayed_lr(tf.float32)
+            return [lr]
+
         # lr scheduler
         lr_decay_factor = (args.lr[1] / args.lr[0])**(1/args.epochs)
         nb_train_frames = np.sum([len(tiff.TiffFile(path).pages) for path in config['training_pool']])
@@ -308,7 +314,11 @@ def train():
                 decay_steps=int(nb_train_frames/args.batch_size),
                 decay_rate=lr_decay_factor,
                 staircase=True)
-    vxm_model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate), loss=[image_loss, grad_loss])
+
+    # ## Compile model
+    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
+    metrics = get_metrics(optimizer)
+    vxm_model.compile(optimizer=optimizer, loss=[image_loss, grad_loss], metrics=metrics)
 
     _LOGGER.info(f'Training for {args.epochs} epochs')
     hist = vxm_model.fit(train_dataset,
