@@ -13,6 +13,7 @@
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
     <script src="_static/doctools.js"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="register module" href="register.html" />
@@ -118,6 +119,13 @@ across the yielded batch.</p></li>
 <dd class="field-odd"><p>tf Dataset</p>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="stabilize2p.utils.hypermorph_optimal_register">
+<span class="sig-prename descclassname"><span class="pre">stabilize2p.utils.</span></span><span class="sig-name descname"><span class="pre">hypermorph_optimal_register</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image_pool</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hypermorph_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keys</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">list</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_hyp</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gpu</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'0'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metric</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'euclidean'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_optimal_hyp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/stabilize2p/utils.html#hypermorph_optimal_register"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.utils.hypermorph_optimal_register" title="Permalink to this definition">¶</a></dt>
+<dd><p>Register using a Hypermorph model by optimizing its hyperparameter per-frame using some heuristic metric.</p>
+<p>This function calculates <span class="math notranslate nohighlight">\(L_{sim}(I_t, I_{t-1})\)</span></p>
 </dd></dl>
 
 <dl class="py function">
@@ -342,6 +350,26 @@ Defaults to use all frames.</p></li>
 <li><p><strong>out_flow</strong> (<em>np.ndarray</em>)</p></li>
 </ul>
 </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="stabilize2p.utils.vxm_undo_preprocessing">
+<span class="sig-prename descclassname"><span class="pre">stabilize2p.utils.</span></span><span class="sig-name descname"><span class="pre">vxm_undo_preprocessing</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">numpy.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">params</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">numpy.ndarray</span></span></span><a class="reference internal" href="_modules/stabilize2p/utils.html#vxm_undo_preprocessing"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.utils.vxm_undo_preprocessing" title="Permalink to this definition">¶</a></dt>
+<dd><p>Undo transformations of <a class="reference internal" href="#stabilize2p.utils.vxm_preprocessing" title="stabilize2p.utils.vxm_preprocessing"><code class="xref py py-func docutils literal notranslate"><span class="pre">stabilize2p.utils.vxm_preprocessing()</span></code></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>array</em>) – output array from <a class="reference internal" href="#stabilize2p.utils.vxm_preprocessing" title="stabilize2p.utils.vxm_preprocessing"><code class="xref py py-func docutils literal notranslate"><span class="pre">stabilize2p.utils.vxm_preprocessing()</span></code></a></p></li>
+<li><p><strong>params</strong> (<em>dict</em><em> or </em><em>list of dict</em>) – output calculated parameters dict from <a class="reference internal" href="#stabilize2p.utils.vxm_preprocessing" title="stabilize2p.utils.vxm_preprocessing"><code class="xref py py-func docutils literal notranslate"><span class="pre">stabilize2p.utils.vxm_preprocessing()</span></code></a></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>transformed <code class="docutils literal notranslate"><span class="pre">x</span></code></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array</p>
 </dd>
 </dl>
 </dd></dl>

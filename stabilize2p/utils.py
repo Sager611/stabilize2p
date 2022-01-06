@@ -15,6 +15,7 @@ import subprocess
 from tqdm import tqdm
 from pathlib import Path
 from typing import Iterable
+from itertools import product
 from concurrent.futures.thread import ThreadPoolExecutor
 
 import cv2
@@ -23,16 +24,277 @@ import skimage.measure
 import tifffile as tiff
 import tensorflow as tf
 import voxelmorph as vxm
-from scipy import ndimage as ndi
 from matplotlib import pyplot as plt
 from sklearn.utils import gen_batches
 from pystackreg import StackReg
+from tensorflow.keras import backend as K
+from scipy import ndimage as ndi
+from scipy.sparse import csr_matrix
+from scipy.spatial.distance import cdist
+from scipy.sparse.csgraph import shortest_path
 
 from . import register
 from . import threshold
 
 _LOGGER = logging.getLogger('stabilize2p')
 
+
+def hypermorph_optimal_register(image_pool: list,
+                                hypermorph_path: str,
+                                keys: list = None,
+                                num_hyp: int = 20,
+                                gpu: str = '0',
+                                metric='model-ncc',
+                                return_optimal_hyp=False):
+    """Register using a Hypermorph model by optimizing its hyperparameter per-frame using some heuristic metric.
+
+    This function calculates :math:`L_{sim}(I_t, I_{t-1})` for each pair of frames :math:`I_t, I_{t-1}` each
+    generated with ``num_hyp`` [0, 1] values for the hyperparameter, and with some metric :math:`L_{sim}`.
+    Then, the optimal hyperparameters per-frame are calculated by the shortest weighted path from :math:`I_0`
+    to :math:`I_{nb\_frames}`. Finally, with these hyperparameters, the images from ``image_pool`` are
+    registered and returned as an array.
+
+    Parameters
+    ----------
+    image_pool : str or list
+        path or list of paths to the TIFF files to register
+    hypermorph_path : str
+        path to the saved weights of the Hypermorph model in h5 format
+    keys: list, optional
+        same argument as for :func:`stabilize2p.utils.vxm_data_generator`, indicates which frames to use for
+        each file in the pool. Defaults to use all frames
+    num_hyp: int, optional
+        number of hyperparameters between [0, 1] to use. For example, if ``num_hyp=3``, then the considered
+        hyperparameters will be ``[0. , 0.5, 1. ]``.
+        Default is 20
+    gpu: str, optional
+        gpu numbers to use. Default is '0'
+    metric: str or function, optional
+        which similarity metric to use between consecutive frames.
+        Default is 'model-ncc', which uses NCC as the similarity loss, and l2 of the gradient as an additional
+        smoothness loss. In particular, for each image pair :math:`I_t, I_{t-1}` the metric is:
+        
+        .. math::
+        
+            0.5 * L_{sim}(I_t, I_{t-1}) + 0.25 * L_{grad}(\phi_t) + 0.25 * L_{grad}(\phi_{t+1})
+            
+        Where :math:`\phi_t` is the gradient of the predicted flow for :math:`I_t`.
+        
+        You can instead specify 'model-mse', which will use MSE as the similarity loss.
+        
+        Further details for other metrics are found in :func:`scipy.spatial.distance.cdist`
+    return_optimal_hyp: bool, optional
+        whether to also return the array of found optimal hyperparameters for each frame.
+        Default is False
+    Returns
+    -------
+    array or tuple of arrays
+        registered images. If ``return_optimal_hyp`` is True, also returns array of optimal hyperparameters
+    """
+    if type(image_pool) is str:
+        image_pool = [image_pool]
+
+    # get frame shape
+    inshape = tiff.imread(image_pool[0], key=0).shape
+    nfeats = 1
+
+    # load model
+    K.clear_session()
+    vxm_model = vxm.networks.HyperVxmDense.load(hypermorph_path)
+    _LOGGER.info('model input shape:  ' + ', '.join([str(t.shape) for t in vxm_model.inputs]))
+    _LOGGER.info('model output shape: ' + ', '.join([str(t.shape) for t in vxm_model.outputs]))
+
+    if metric.startswith('model'):
+        # prepare loss functions
+        image_loss = metric.split('-')[1].lower()
+        if image_loss == 'ncc':
+            ncc_loss = vxm.losses.NCC().loss
+            def image_loss(I, J):
+                with ThreadPoolExecutor() as executor:
+                    I = [tf.convert_to_tensor(np.repeat([x], num_hyp, axis=0)) for x in I]
+                    J = tf.convert_to_tensor(J)
+                    futures = [
+                        executor.submit(ncc_loss, x, J)
+                        for x in I
+                    ]
+                    scores = np.array([f.result() for f in futures])
+                    return scores
+        elif image_loss == 'mse':
+            # loss parameters
+            image_sigma = 0.05  # a priori image noise std
+
+            scaling = 1.0 / (image_sigma ** 2) / np.prod(inshape)
+            image_loss = lambda I, J: scaling * cdist(I.reshape((num_hyp, -1)), J.reshape((num_hyp, -1)), metric='sqeuclidean')
+
+        int_downsize = vxm_model.outputs[0].shape[1] // vxm_model.outputs[1].shape[1]
+        grad_loss = vxm.losses.Grad('l2', loss_mult=int_downsize).loss
+
+    # tensorflow device handling
+    device, nb_devices = vxm.tf.utils.setup_device(gpu)
+
+    # multi-gpu support
+    if nb_devices > 1:
+        vxm_model = tf.keras.utils.multi_gpu_model(vxm_model, gpus=nb_devices)
+
+    # retrieve images as input
+    store_params = []
+    base_gen = vxm_data_generator(image_pool,
+                                  keys=keys,
+                                  training=False,
+                                  store_params=store_params)
+    inputs = [ins for (ins, _) in base_gen]
+
+    del base_gen
+    gc.collect()
+
+    moving = np.concatenate([m for m, _ in inputs], axis=0)
+    fixed = np.concatenate([f for _, f in inputs], axis=0)
+
+    del inputs
+    gc.collect()
+
+    # shape: (num_hyp, 1)
+    t1 = time.perf_counter()
+    hyper_params = np.linspace(0, 1, num_hyp)[:, np.newaxis]
+    sg_data = []
+    sg_indices = []
+    sg_indptr = []
+    in_hyp = hyper_params[:, np.newaxis]
+    in_moving = np.repeat([moving[0]], num_hyp, axis=0)
+    in_fixed = np.repeat([fixed[0]], num_hyp, axis=0)
+    if metric.startswith('model'):
+        # shape: (num_hyp, W, H, 1)
+        I, I_flow = vxm_model.predict((in_moving, in_fixed, in_hyp))
+        I = I.squeeze()
+        I_flow = tf.convert_to_tensor(I_flow)
+        I_flow_loss = np.squeeze(grad_loss(None, I_flow))
+    else:
+        # shape: (num_hyp, W, H)
+        I = vxm_model.predict((in_moving, in_fixed, in_hyp))[0].squeeze()
+        I = I.reshape((num_hyp, -1))
+    for t in tqdm(range(moving.shape[0]-1)):
+        # model forward pass
+        in_moving = np.repeat([moving[t+1]], num_hyp, axis=0)
+        in_fixed = np.repeat([fixed[t+1]], num_hyp, axis=0)
+        if metric.startswith('model'):
+            # shape: (num_hyp, W, H, 1)
+            J, J_flow = vxm_model.predict((in_moving, in_fixed, in_hyp))
+            J = J.squeeze()
+            J_flow = tf.convert_to_tensor(J_flow)
+            J_flow_loss = np.squeeze(grad_loss(None, J_flow))
+        else:
+            # shape: (num_hyp, W, H)
+            J = vxm_model.predict((in_moving, in_fixed, in_hyp))[0].squeeze()
+            J = J.reshape((num_hyp, -1))
+
+        # calcuate metric and add to the score graph
+        # if metric == 'model':
+            # SLOWER
+            # # transform to shape: (num_hyp**2, W, H, 1)
+            # x, fx = np.repeat(I, num_hyp, axis=0), np.repeat(I_flow, num_hyp, axis=0)
+            # tile = np.ones_like(J.shape)
+            # tile[0] = num_hyp
+            # y, fy = np.tile(J, tile), np.tile(J_flow, tile)
+            # fx = tf.convert_to_tensor(fx)
+            # fy = tf.convert_to_tensor(fy)
+            # x = tf.convert_to_tensor(x)
+            # y = tf.convert_to_tensor(y)
+
+            # # scores matrix. Rows are I, Cols are J
+            # scores = model_loss(x, y, fx, fy).numpy().squeeze()
+            # del x, y, fx, fy
+            # scores = scores.reshape((num_hyp, num_hyp))
+
+            # FASTER
+            # with ThreadPoolExecutor() as executor:
+            #         futures = [
+            #             [
+            #                 executor.submit(model_loss, img_prev[None, ...], img_next[None, ...], flow_prev[None, ...], flow_next[None, ...])
+            #                 for img_next, flow_next in zip(J, J_flow)
+            #             ] for img_prev, flow_prev in zip(I, I_flow)
+            #         ]
+            #         scores = np.array([[f.result() for f in row] for row in futures])
+            #         scores = scores.squeeze()
+
+            
+        if metric.startswith('model'):
+            # EVEN FASTER
+            # 0.5 * MSE(I, J) + 0.25 * flow_loss(I) + 0.25 * flow_loss(J)
+            #  or
+            # 0.5 * NCC(I, J) + 0.25 * flow_loss(I) + 0.25 * flow_loss(J)
+            scores = 0.5 * image_loss(I, J) + 0.25 * I_flow_loss[:, np.newaxis] + 0.25 * J_flow_loss[np.newaxis, :]
+        else:
+            scores = cdist(I, J, metric=metric)
+        # scores has as rows input nodes and as cols output nodes
+        sg_indices = np.r_[sg_indices,
+                           np.tile((t+1)*num_hyp + np.arange(num_hyp), num_hyp)]
+        sg_data = np.r_[sg_data,
+                        scores.flatten()]
+
+        I = J
+        if metric == 'model':
+            I_flow_loss = J_flow_loss
+
+    sg_indptr = np.arange(0, sg_indices.size+1, num_hyp)
+    # last image's hyp nodes are sinks, so we add their rows as empty
+    sg_indptr = np.r_[sg_indptr, np.repeat(sg_indptr[-1], num_hyp)]
+
+    # cast as int type
+    sg_indptr = sg_indptr.astype('int32')
+    sg_indices = sg_indices.astype('int32')
+
+    # a Compressed Sparse Row matrix
+    N = moving.shape[0]*num_hyp
+    score_graph = csr_matrix((sg_data, sg_indices, sg_indptr), shape=(N, N))
+    t2 = time.perf_counter()
+    _LOGGER.info(f'Calcuated scores. Elapsed {t2-t1:.2f}s | {moving.shape[0]/(t2-t1):.0f} frames/s | {(t2-t1)/moving.shape[0]:.4f} s/frame')
+
+    t1 = time.perf_counter()
+    # dist_matrix shape: (num_hyp, N_nodes)
+    dist_matrix, predecessors = \
+        shortest_path(score_graph,
+                      directed=True,
+                      return_predecessors=True,
+                      indices=np.arange(num_hyp))
+    t2 = time.perf_counter()
+    _LOGGER.info(f'Calcuated shortest paths. Elapsed {t2-t1:.4f}s')
+    _LOGGER.info(f'Shortest path scores: \n{dist_matrix[:, -num_hyp:]}')
+
+    # build path of hyp using predecessors
+    optimal_hyp = []
+    opt_idx_source_sink = np.argmin(dist_matrix[:, -num_hyp:])
+    opt_idx_source = opt_idx_source_sink // num_hyp
+    # we are only interested in the source with optimal path.
+    # ``predecessors`` will now be just its row
+    predecessors = predecessors[opt_idx_source]
+    
+    optimal_hyp.append(hyper_params[opt_idx_source_sink % num_hyp])
+    opt_idx = predecessors[-num_hyp:][opt_idx_source_sink % num_hyp]
+    while opt_idx != -9999:
+        optimal_hyp.append(hyper_params[opt_idx % num_hyp])
+        opt_idx = predecessors[opt_idx]
+    # we have been adding optimal hyps from the last frame to the first,
+    # so we need to reverse the list
+    optimal_hyp = np.array(optimal_hyp)[::-1]
+    optimal_hyp = optimal_hyp.squeeze()
+    _LOGGER.info(f'optimal hyps: {optimal_hyp}')
+
+    # finally! register result
+    # shape: (N_frames, W, H)
+    optimal_hyp = optimal_hyp[:, np.newaxis]
+    moved = vxm_model.predict((moving, fixed, optimal_hyp))[0].squeeze()
+    del vxm_model
+    
+    # undo pre-processing transformations
+    i = 0
+    for params in store_params:
+        idx = slice(i, i+params['nb_frames'])
+        moved[idx] = vxm_undo_preprocessing(moved[idx], params)
+        i += params['nb_frames']
+    if return_optimal_hyp:
+        return moved, optimal_hyp
+    else:
+        return moved
 
 
 def _hypm_random_hyperparam(oversample_rate: float):
@@ -43,7 +305,12 @@ def _hypm_random_hyperparam(oversample_rate: float):
         return np.random.rand()
 
 
-def hypermorph_dataset(base_generator, train: bool, inshape: tuple, nfeats: int = 1, oversample_rate: float = 0.2):
+def hypermorph_dataset(base_generator,
+                       train: bool,
+                       inshape: tuple,
+                       nfeats: int = 1,
+                       oversample_rate: float = 0.2,
+                       hyp_value: float = 0.5):
     """Return dataset based on Hypermorph's hyperparameter generator extension.
 
     Parameters
@@ -60,6 +327,8 @@ def hypermorph_dataset(base_generator, train: bool, inshape: tuple, nfeats: int 
         number of features. Defaults to 1
     oversample_rate : float, optional
         oversample rate for Hypermorph's random parameter generator. Defaults to 0.2
+    hyp_value : float, optional
+        which hyper-parameter value to use when not training. Defaults to 0.5
 
     Returns
     -------
@@ -72,7 +341,7 @@ def hypermorph_dataset(base_generator, train: bool, inshape: tuple, nfeats: int 
             if train:
                 hyp = np.expand_dims([_hypm_random_hyperparam(oversample_rate) for _ in range(inputs[0].shape[0])], -1)
             else:
-                hyp = np.linspace(0, 1, inputs[0].shape[0])[:, np.newaxis]
+                hyp = np.tile([[hyp_value]], (inputs[0].shape[0], 1))
             inputs = (*inputs, hyp)
             inputs = tuple(np.array(v, dtype=dt) for v in inputs)
             outputs = tuple(np.array(v, dtype=dt) for v in outputs)
@@ -106,11 +375,11 @@ def vxm_preprocessing(x, affine_transform=True, params=None):
     np.clip(x, th, None, out=x)
     x = x - th
 
-    # TODO: does this improve performance?
+    # TODO: does this improve accuracy?
     x = np.log(1 + x)
     x = np.clip(x, 0, None)  # numerical errors can make x negative
 
-    # normalize
+    # normalize to [0, 1]
     low = x.min() if params is None else params['low']
     hig = x.max() if params is None else params['hig']
     x = (x - low) / (hig - low)
@@ -134,7 +403,28 @@ def vxm_preprocessing(x, affine_transform=True, params=None):
         ref = None
 
     # return both the pre-processed batch and the pre-processing params
-    return x, dict(low=low, hig=hig, bg_thresh=th, ref=ref)
+    return x, dict(low=low, hig=hig, bg_thresh=th, ref=ref, nb_frames=x.shape[0])
+
+
+def vxm_undo_preprocessing(x: np.ndarray, params) -> np.ndarray:
+    """Undo transformations of :func:`stabilize2p.utils.vxm_preprocessing`.
+
+    Parameters
+    ----------
+    x : array
+        output array from :func:`stabilize2p.utils.vxm_preprocessing`
+    params : dict or list of dict
+        output calculated parameters dict from :func:`stabilize2p.utils.vxm_preprocessing`
+    Returns
+    -------
+    array
+        transformed ``x``
+    """
+    h, l = params['hig'], params['low']
+    x = x * (h - l) + l
+    x = np.exp(x) - 1
+    x = x + params['bg_thresh']
+    return x
 
 
 def vxm_data_generator(file_pool,
@@ -236,8 +526,10 @@ def vxm_data_generator(file_pool,
     _LOGGER.info(f'Calculated "{ref}" fixed references in {t2-t1:.3g}s')
 
     if training:
+        # this variable keeps track when to free memory
         counter = 0
         while True:
+            # choose file uniformly at random from pool
             file_i = np.random.choice(len(file_pool))
             key = keys[file_i]
             if key is None:
@@ -248,9 +540,9 @@ def vxm_data_generator(file_pool,
             else:
                 nb_frames = key.size
 
+            # parameters for the file image from vxm_preprocessing
             params = store_params[file_i]
 
-            # idx = np.random.randint(0, nb_frames, size=batch_size)
             idx = np.random.randint(0, nb_frames, size=2*batch_size)
             x_data = tiff.imread(file_pool[file_i], key=key[idx])
             x_data, _ = vxm_preprocessing(
@@ -265,7 +557,6 @@ def vxm_data_generator(file_pool,
 
             # prepare inputs:
             # images need to be of the size [batch_size, H, W, 1]
-            # moving_images = x_data[..., np.newaxis]
             moving_images = x_data[:batch_size, ..., np.newaxis]
             fixed = x_data[batch_size:, ..., np.newaxis]
             inputs = [moving_images, fixed]
@@ -276,13 +567,13 @@ def vxm_data_generator(file_pool,
             # we also wish to penalize the deformation field. 
             outputs = [fixed, zero_phi]
 
+            del x_data, fixed, moving_images  # does this help memory usage?
             yield (inputs, outputs)
-            del x_data, fixed, moving_images, (inputs, outputs)
 
             # memory limiter
             counter += batch_size
-            if counter > 1024:
-                counter -= 1024
+            if counter > 128:
+                counter -= 128
                 # garbage collector
                 gc.collect()
     else:
@@ -302,6 +593,8 @@ def vxm_data_generator(file_pool,
 
             for idx in gen_batches(nb_frames, batch_size):
                 x_data = tiff.imread(file_path, key=key[idx])
+                if batch_size == 1:
+                    x_data = x_data[np.newaxis, ...]
                 x_data, _ = vxm_preprocessing(
                     x_data, 
                     affine_transform=affine_transform,
@@ -322,8 +615,8 @@ def vxm_data_generator(file_pool,
                 # we also wish to penalize the deformation field. 
                 outputs = [fixed, zero_phi]
 
+                del x_data, fixed, moving_images  # does this help memory usage?
                 yield (inputs, outputs)
-                del x_data, fixed, moving_images, (inputs, outputs)
 
         # force garbage collector
         gc.collect()

@@ -1,5 +1,5 @@
 stabilize2p
-============
+===========
 
 Different approaches to stabilize 2-photon imaging video.
 
@@ -58,3 +58,4 @@ Scripts:
    `register.py <https://github.com/voxelmorph/voxelmorph/blob/dev/scripts/tf/register.py>`__.
    Used to load a model and register an image.
 -  train-voxelmorph.py: train a Voxelmorph model using a pool of files. Check ``train-voxelmorph.py --help`` for more information.
+-  train-hypermorph.py: train a Hypermorph model using a pool of files. Check ``train-hypermorph.py --help`` for more information.

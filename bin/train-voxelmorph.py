@@ -31,8 +31,8 @@ parser.add_argument('--epochs', type=int, default=200,
                     help='number of training epochs (default: 200)')
 parser.add_argument('--steps-per-epoch', type=int, default=100,
                     help='steps per epoch (default: 100)')
-parser.add_argument('--batch-size', type=int, default=8,
-                    help='training batch size, aka number of frames (default: 8)')
+parser.add_argument('--batch-size', type=int, default=1,
+                    help='training batch size, aka number of frames (default: 1)')
 parser.add_argument('--gpu', default='',
                     help='visible GPU ID numbers. Goes into "CUDA_VISIBLE_DEVICES" env var (default: use all GPUs)')
 parser.add_argument('--l2', type=float, default=0,
@@ -56,6 +56,9 @@ parser.add_argument('--dec', type=int, nargs='+',
 # loss hyperparameters
 parser.add_argument('--image-loss', default='mse',
                     help='image reconstruction loss - can be mse or ncc (default: mse)')
+parser.add_argument('--lambda-loss', type=float, default=0.5,
+                    help='weighting for the losses. Image similarity loss will be weighted by `(1-lambda)` '
+                    'while flow smoothness loss will be weighted by `lambda` (default: 0.5)')
 
 args = parser.parse_args()
 
@@ -201,8 +204,7 @@ def train():
 
 
     # usually, we have to balance the two losses by a hyper-parameter
-    lambda_param = 0.05
-    loss_weights = [1, lambda_param]
+    loss_weights = [1-args.lambda_loss, args.lambda_loss]
 
 
     # ## Compile model

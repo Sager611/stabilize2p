@@ -28,8 +28,8 @@ parser.add_argument('--random-seed', type=int, default=1,
                     help='numpy\'s random seed (default: 1)')
 
 # training parameters
-parser.add_argument('--epochs', type=int, default=200,
-                    help='number of training epochs (default: 200)')
+parser.add_argument('--epochs', type=int, default=1000,
+                    help='number of training epochs (default: 1000)')
 parser.add_argument('--steps-per-epoch', type=int, default=100,
                     help='steps per epoch (default: 100)')
 parser.add_argument('--batch-size', type=int, default=1,
@@ -42,9 +42,14 @@ parser.add_argument('--initial-epoch', type=int, default=0,
 parser.add_argument('--load-weights', help='optional weights file to initialize with')
 parser.add_argument('--ref', default='first',
                     help='reference frame to use when training. Either: first, last, mean or median (default: first)')
-parser.add_argument('--validation-freq', type=int, default=10,
-                    help='how often (in epochs) to calculate the validation loss. Set to -1 to disable (default: 10)')
-parser.add_argument('--lr', type=float, default=1e-4, help='learning rate (default: 1e-4)')
+parser.add_argument('--validation-freq', type=int, default=50,
+                    help='how often (in epochs) to calculate the validation loss. Set to -1 to disable (default: 50)')
+parser.add_argument('--validation-hyp', type=float, default=0.5,
+                    help='what hyper-parameter value to use in validation. Should be in the interval [0, 1] (default: 0.5)')
+parser.add_argument('--lr', type=float, nargs='+',
+                    default=[1e-3, 1e-5],
+                    help='learning rate. You can optionally provide this argument as'
+                    ' `initial_lr final_lr` and exponential decay will be applied (default: 1e-3 1e-5)')
 
 # network architecture parameters
 parser.add_argument('--enc', type=int, nargs='+',
@@ -59,12 +64,14 @@ parser.add_argument('--int-downsize', type=int, default=2,
                     help='flow downsample factor for integration (default: 2)')
 
 # loss hyperparameters
-parser.add_argument('--image-loss', default='mse',
-                    help='image reconstruction loss - can be mse or ncc (default: mse)')
+parser.add_argument('--image-loss', default='ncc',
+                    help='image reconstruction loss - can be mse or ncc (default: ncc)')
 parser.add_argument('--image-sigma', type=float, default=0.05,
                     help='estimated image noise for mse image scaling (default: 0.05)')
 
 args = parser.parse_args()
+
+assert len(args.lr) <= 2, '--lr should be 1 or 2 arguments'
 
 ######################################################################
 
@@ -81,6 +88,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import gc
 import time
 import json
+import pickle
 import logging
 from itertools import cycle
 from collections import defaultdict
@@ -97,7 +105,9 @@ from matplotlib import pyplot as plt
 from sklearn.utils import gen_batches
 from tensorflow.keras import backend as K
 
-from stabilize2p.utils import make_video, get_strategy, vxm_data_generator, hypermorph_dataset
+from stabilize2p.utils import make_video, get_strategy, \
+                              vxm_data_generator, hypermorph_dataset, \
+                              hypermorph_optimal_register
 
 # logger
 _LOGGER = logging.getLogger('stabilize2p')
@@ -132,6 +142,8 @@ def frame_gen(video):
 
 # ## Setup
 
+_LOGGER.info('script args: ' + str(vars(args)))
+
 # solves Hypermorph's compatibility issues
 tf1.disable_eager_execution()
 tf1.experimental.output_all_intermediates(True)
@@ -145,8 +157,6 @@ np.random.seed(args.random_seed)
 
 os.makedirs(args.out_dir, exist_ok=True)
 
-# strategy = get_strategy('default')
-# strategy = tf.distribute.OneDeviceStrategy(device="/gpu:0")
 # tensorflow device handling
 device, nb_devices = vxm.tf.utils.setup_device(args.gpu)
 assert np.mod(args.batch_size, nb_devices) == 0, \
@@ -176,12 +186,14 @@ base_train_generator = vxm_data_generator(
 train_dataset = hypermorph_dataset(base_train_generator,
                                    train=True,
                                    inshape=inshape,
-                                   nfeats=nfeats)
+                                   nfeats=nfeats,
+                                   oversample_rate=args.oversample_rate)
 
 if config['validation_pool'] and args.validation_freq > 0:
     base_val_generator = vxm_data_generator(
         config['validation_pool'],
-        batch_size=args.batch_size,
+        # don't make it _too_ slow
+        batch_size=max(8, args.batch_size),
         ref=args.ref, training=False)
     # when training=False, the generator generates the frames once,
     # but tensorflow requires it to cycle in order to use it multiple times
@@ -189,7 +201,8 @@ if config['validation_pool'] and args.validation_freq > 0:
     val_dataset = hypermorph_dataset(base_val_generator,
                                      train=False,
                                      inshape=inshape,
-                                     nfeats=nfeats)
+                                     nfeats=nfeats,
+                                     hyp_value=args.validation_hyp)
 
     nb_validation_frames = np.sum([len(tiff.TiffFile(file_path).pages) for file_path in config['validation_pool']])
     validation_steps = (nb_validation_frames // args.batch_size)
@@ -247,8 +260,12 @@ def train():
 
     vxm_model.summary(line_length=180)
 
-    _LOGGER.info('input shape: ' + ', '.join([str(t.shape) for t in vxm_model.inputs]))
-    _LOGGER.info('output shape:' + ', '.join([str(t.shape) for t in vxm_model.outputs]))
+    _LOGGER.info('input shape:  ' + ', '.join([str(t.shape) for t in vxm_model.inputs]))
+    _LOGGER.info('output shape: ' + ', '.join([str(t.shape) for t in vxm_model.outputs]))
+    
+    # save script's arguments in the model
+    # vxm_model.references.script_args = vars(args)
+    # _LOGGER.info('storing args in the model:' + str(vars(args)))
 
     # ## Loss
 
@@ -266,7 +283,6 @@ def train():
         hyp = (1 - tf.squeeze(vxm_model.references.hyper_val))
         return hyp * image_loss_func(y_true, y_pred)
 
-
     def grad_loss(y_true, y_pred):
         hyp = tf.squeeze(vxm_model.references.hyper_val)
         return hyp * vxm.losses.Grad('l2', loss_mult=args.int_downsize).loss(y_true, y_pred)
@@ -280,7 +296,19 @@ def train():
         save_callback = tf.keras.callbacks.ModelCheckpoint(save_filename, save_freq=args.steps_per_epoch*100)
 
     # ## Compile model
-    vxm_model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=args.lr), loss=[image_loss, grad_loss])
+    if len(args.lr) == 1:
+        learning_rate = args.lr[0]
+    else:
+        # lr scheduler
+        lr_decay_factor = (args.lr[1] / args.lr[0])**(1/args.epochs)
+        nb_train_frames = np.sum([len(tiff.TiffFile(path).pages) for path in config['training_pool']])
+        gc.collect()
+        learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(
+                initial_learning_rate=args.lr[0],
+                decay_steps=int(nb_train_frames/args.batch_size),
+                decay_rate=lr_decay_factor,
+                staircase=True)
+    vxm_model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate), loss=[image_loss, grad_loss])
 
     _LOGGER.info(f'Training for {args.epochs} epochs')
     hist = vxm_model.fit(train_dataset,
@@ -297,7 +325,6 @@ def train():
 
 
     # plot history
-    import pickle
     import matplotlib.pyplot as plt
 
     def plot_history(hist, loss_names=['loss', 'val_loss']):

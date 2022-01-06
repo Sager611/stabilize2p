@@ -5,6 +5,7 @@
 """
 
 import time
+import logging
 from concurrent.futures.thread import ThreadPoolExecutor
 
 import cv2
@@ -13,6 +14,8 @@ from pystackreg import StackReg
 from scipy import ndimage as ndi
 
 from . import utils
+
+_LOGGER = logging.getLogger('stabilize2p')
 
 
 def pysreg_transform(video: np.ndarray, method=StackReg.AFFINE, reference='first') -> np.ndarray:
@@ -94,6 +97,9 @@ def ECC_transform(video: np.ndarray, nb_iters=5, eps=1e-6, ref=None) -> np.ndarr
         Defaults to first frame in video
     """
     if ref is None:
+        # if there is only one frame, there is nothing to do
+        if video.shape[0] <= 1:
+            return video.copy()
         ref = video[0]
     ref = ref.astype(np.float32)
 
@@ -102,11 +108,16 @@ def ECC_transform(video: np.ndarray, nb_iters=5, eps=1e-6, ref=None) -> np.ndarr
         warp_matrix = np.eye(2, 3, dtype=np.float32)
         criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, nb_iters, eps)
 
-        # Run the ECC algorithm. The results are stored in warp_matrix.
-        (cc, warp_matrix) = cv2.findTransformECC(ref, I, warp_matrix, cv2.MOTION_AFFINE, criteria)
+        try:
+            # Run the ECC algorithm. The results are stored in warp_matrix.
+            (cc, warp_matrix) = cv2.findTransformECC(ref, I, warp_matrix, cv2.MOTION_AFFINE, criteria)
 
-        # Use warpAffine for Translation, Euclidean and Affine
-        I_moved = cv2.warpAffine(I, warp_matrix, (ref.shape[1], ref.shape[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP)
+            # Use warpAffine for Translation, Euclidean and Affine
+            I_moved = cv2.warpAffine(I, warp_matrix, (ref.shape[1], ref.shape[0]), flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP)
+        except cv2.error as e:
+            # in case of an OpenCV error, simply return the same frame unmoved
+            _LOGGER.error(f'{e}')
+            return I
         return I_moved
 
     # use parallelism
