@@ -38,6 +38,7 @@
 <span class="sd">&quot;&quot;&quot;</span>
 
 <span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">logging</span>
 <span class="kn">from</span> <span class="nn">concurrent.futures.thread</span> <span class="kn">import</span> <span class="n">ThreadPoolExecutor</span>
 
 <span class="kn">import</span> <span class="nn">cv2</span>
@@ -46,6 +47,8 @@
 <span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">ndimage</span> <span class="k">as</span> <span class="n">ndi</span>
 
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">utils</span>
+
+<span class="n">_LOGGER</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;stabilize2p&#39;</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="pysreg_transform"><a class="viewcode-back" href="../../register.html#stabilize2p.register.pysreg_transform">[docs]</a><span class="k">def</span> <span class="nf">pysreg_transform</span><span class="p">(</span><span class="n">video</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">StackReg</span><span class="o">.</span><span class="n">AFFINE</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="s1">&#39;first&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
@@ -138,11 +141,16 @@
         <span class="n">warp_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
         <span class="n">criteria</span> <span class="o">=</span> <span class="p">(</span><span class="n">cv2</span><span class="o">.</span><span class="n">TERM_CRITERIA_EPS</span> <span class="o">|</span> <span class="n">cv2</span><span class="o">.</span><span class="n">TERM_CRITERIA_COUNT</span><span class="p">,</span> <span class="n">nb_iters</span><span class="p">,</span> <span class="n">eps</span><span class="p">)</span>
 
-        <span class="c1"># Run the ECC algorithm. The results are stored in warp_matrix.</span>
-        <span class="p">(</span><span class="n">cc</span><span class="p">,</span> <span class="n">warp_matrix</span><span class="p">)</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">findTransformECC</span><span class="p">(</span><span class="n">ref</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="n">warp_matrix</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">MOTION_AFFINE</span><span class="p">,</span> <span class="n">criteria</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># Run the ECC algorithm. The results are stored in warp_matrix.</span>
+            <span class="p">(</span><span class="n">cc</span><span class="p">,</span> <span class="n">warp_matrix</span><span class="p">)</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">findTransformECC</span><span class="p">(</span><span class="n">ref</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="n">warp_matrix</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">MOTION_AFFINE</span><span class="p">,</span> <span class="n">criteria</span><span class="p">)</span>
 
-        <span class="c1"># Use warpAffine for Translation, Euclidean and Affine</span>
-        <span class="n">I_moved</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">warpAffine</span><span class="p">(</span><span class="n">I</span><span class="p">,</span> <span class="n">warp_matrix</span><span class="p">,</span> <span class="p">(</span><span class="n">ref</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">ref</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">flags</span><span class="o">=</span><span class="n">cv2</span><span class="o">.</span><span class="n">INTER_LINEAR</span> <span class="o">+</span> <span class="n">cv2</span><span class="o">.</span><span class="n">WARP_INVERSE_MAP</span><span class="p">)</span>
+            <span class="c1"># Use warpAffine for Translation, Euclidean and Affine</span>
+            <span class="n">I_moved</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">warpAffine</span><span class="p">(</span><span class="n">I</span><span class="p">,</span> <span class="n">warp_matrix</span><span class="p">,</span> <span class="p">(</span><span class="n">ref</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">ref</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">flags</span><span class="o">=</span><span class="n">cv2</span><span class="o">.</span><span class="n">INTER_LINEAR</span> <span class="o">+</span> <span class="n">cv2</span><span class="o">.</span><span class="n">WARP_INVERSE_MAP</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">cv2</span><span class="o">.</span><span class="n">error</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="c1"># in case of an OpenCV error, simply return the same frame unmoved</span>
+            <span class="n">_LOGGER</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">I</span>
         <span class="k">return</span> <span class="n">I_moved</span>
 
     <span class="c1"># use parallelism</span>

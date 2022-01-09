@@ -98,7 +98,7 @@
 
 <dl class="py function">
 <dt class="sig sig-object py" id="stabilize2p.utils.hypermorph_dataset">
-<span class="sig-prename descclassname"><span class="pre">stabilize2p.utils.</span></span><span class="sig-name descname"><span class="pre">hypermorph_dataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">base_generator</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">train</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inshape</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nfeats</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">oversample_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/stabilize2p/utils.html#hypermorph_dataset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.utils.hypermorph_dataset" title="Permalink to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">stabilize2p.utils.</span></span><span class="sig-name descname"><span class="pre">hypermorph_dataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">base_generator</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">train</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inshape</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">tuple</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nfeats</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">oversample_rate</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hyp_value</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/stabilize2p/utils.html#hypermorph_dataset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.utils.hypermorph_dataset" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return dataset based on Hypermorph’s hyperparameter generator extension.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -110,6 +110,7 @@ across the yielded batch.</p></li>
 <li><p><strong>inshape</strong> (<em>tuple of int</em>) – shape of the inputs to the model</p></li>
 <li><p><strong>nfeats</strong> (<em>int</em><em>, </em><em>optional</em>) – number of features. Defaults to 1</p></li>
 <li><p><strong>oversample_rate</strong> (<em>float</em><em>, </em><em>optional</em>) – oversample rate for Hypermorph’s random parameter generator. Defaults to 0.2</p></li>
+<li><p><strong>hyp_value</strong> (<em>float</em><em>, </em><em>optional</em>) – which hyper-parameter value to use when not training. Defaults to 0.5</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -123,9 +124,44 @@ across the yielded batch.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="stabilize2p.utils.hypermorph_optimal_register">
-<span class="sig-prename descclassname"><span class="pre">stabilize2p.utils.</span></span><span class="sig-name descname"><span class="pre">hypermorph_optimal_register</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image_pool</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hypermorph_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keys</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">list</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_hyp</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gpu</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'0'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metric</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'euclidean'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_optimal_hyp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/stabilize2p/utils.html#hypermorph_optimal_register"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.utils.hypermorph_optimal_register" title="Permalink to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">stabilize2p.utils.</span></span><span class="sig-name descname"><span class="pre">hypermorph_optimal_register</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image_pool</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hypermorph_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keys</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">list</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_hyp</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gpu</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'0'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metric</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'model-ncc'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_optimal_hyp</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/stabilize2p/utils.html#hypermorph_optimal_register"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.utils.hypermorph_optimal_register" title="Permalink to this definition">¶</a></dt>
 <dd><p>Register using a Hypermorph model by optimizing its hyperparameter per-frame using some heuristic metric.</p>
-<p>This function calculates <span class="math notranslate nohighlight">\(L_{sim}(I_t, I_{t-1})\)</span></p>
+<p>This function calculates <span class="math notranslate nohighlight">\(L_{sim}(I_t, I_{t-1})\)</span> for each pair of frames <span class="math notranslate nohighlight">\(I_t, I_{t-1}\)</span> each
+generated with <code class="docutils literal notranslate"><span class="pre">num_hyp</span></code> [0, 1] values for the hyperparameter, and with some metric <span class="math notranslate nohighlight">\(L_{sim}\)</span>.
+Then, the optimal hyperparameters per-frame are calculated by the shortest weighted path from <span class="math notranslate nohighlight">\(I_0\)</span>
+to <span class="math notranslate nohighlight">\(I_{nb\_frames}\)</span>. Finally, with these hyperparameters, the images from <code class="docutils literal notranslate"><span class="pre">image_pool</span></code> are
+registered and returned as an array.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>image_pool</strong> (<em>str</em><em> or </em><em>list</em>) – path or list of paths to the TIFF files to register</p></li>
+<li><p><strong>hypermorph_path</strong> (<em>str</em>) – path to the saved weights of the Hypermorph model in h5 format</p></li>
+<li><p><strong>keys</strong> (<em>list</em><em>, </em><em>optional</em>) – same argument as for <a class="reference internal" href="#stabilize2p.utils.vxm_data_generator" title="stabilize2p.utils.vxm_data_generator"><code class="xref py py-func docutils literal notranslate"><span class="pre">stabilize2p.utils.vxm_data_generator()</span></code></a>, indicates which frames to use for
+each file in the pool. Defaults to use all frames</p></li>
+<li><p><strong>num_hyp</strong> (<em>int</em><em>, </em><em>optional</em>) – number of hyperparameters between [0, 1] to use. For example, if <code class="docutils literal notranslate"><span class="pre">num_hyp=3</span></code>, then the considered
+hyperparameters will be <code class="docutils literal notranslate"><span class="pre">[0.</span> <span class="pre">,</span> <span class="pre">0.5,</span> <span class="pre">1.</span> <span class="pre">]</span></code>.
+Default is 20</p></li>
+<li><p><strong>gpu</strong> (<em>str</em><em>, </em><em>optional</em>) – gpu numbers to use. Default is ‘0’</p></li>
+<li><p><strong>metric</strong> (<em>str</em><em> or </em><em>function</em><em>, </em><em>optional</em>) – <p>which similarity metric to use between consecutive frames.
+Default is ‘model-ncc’, which uses NCC as the similarity loss, and l2 of the flow gradient as an
+additional smoothness loss. In particular, for each image pair <span class="math notranslate nohighlight">\(I_t, I_{t-1}\)</span> the metric is:</p>
+<div class="math notranslate nohighlight">
+\[0.5 * L_{sim}(I_t, I_{t-1}) + 0.25 * L_{grad}(\phi_t) + 0.25 * L_{grad}(\phi_{t+1})\]</div>
+<p>Where <span class="math notranslate nohighlight">\(\phi_t\)</span> is the gradient of the predicted flow for <span class="math notranslate nohighlight">\(I_t\)</span>.</p>
+<p>You can instead specify ‘model-mse’, which will use MSE as the similarity loss.</p>
+<p>Further details for other metrics are found in <a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.distance.cdist.html">scipy.spatial.distance.cdist</a></p>
+</p></li>
+<li><p><strong>return_optimal_hyp</strong> (<em>bool</em><em>, </em><em>optional</em>) – whether to also return the array of found optimal hyperparameters for each frame.
+Default is False</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>registered images. If <code class="docutils literal notranslate"><span class="pre">return_optimal_hyp</span></code> is True, also returns array of optimal hyperparameters</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array or tuple of arrays</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
@@ -283,12 +319,15 @@ Defaults to all use all frames.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="stabilize2p.utils.vxm_data_generator">
-<span class="sig-prename descclassname"><span class="pre">stabilize2p.utils.</span></span><span class="sig-name descname"><span class="pre">vxm_data_generator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_pool</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">8</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">training</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">affine_transform</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'first'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keys</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">store_params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/stabilize2p/utils.html#vxm_data_generator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.utils.vxm_data_generator" title="Permalink to this definition">¶</a></dt>
-<dd><p>Generator that takes in data of size [N, H, W], and yields data for
-our custom vxm model. Note that we need to provide numpy data for each
-input, and each output.</p>
-<p>inputs:  moving [bs, H, W, 1], fixed image [bs, H, W, 1]
-outputs: moved image [bs, H, W, 1], zero-gradient [bs, H, W, 2]</p>
+<span class="sig-prename descclassname"><span class="pre">stabilize2p.utils.</span></span><span class="sig-name descname"><span class="pre">vxm_data_generator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_pool</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">8</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">training</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">affine_transform</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'previous'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keys</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">store_params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">[]</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/stabilize2p/utils.html#vxm_data_generator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.utils.vxm_data_generator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generator that takes in a TIFF file path or list of paths, and yields data for
+a Voxelmorph model.</p>
+<p>Yielded tuples are of the form:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">inputs</span><span class="p">:</span>  <span class="n">moving</span> <span class="p">[</span><span class="n">bs</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">fixed</span> <span class="n">image</span> <span class="p">[</span><span class="n">bs</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+<span class="n">outputs</span><span class="p">:</span> <span class="n">moved</span> <span class="n">image</span> <span class="p">[</span><span class="n">bs</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">zero</span><span class="o">-</span><span class="n">gradient</span> <span class="p">[</span><span class="n">bs</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>where <code class="docutils literal notranslate"><span class="pre">bs</span></code> is the batch size.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
@@ -299,16 +338,24 @@ then the batch is generated by taking a random subset of frames of size <code cl
 <li><p><strong>training</strong> (<em>bool</em><em>, </em><em>optional</em>) – whether to activate training mode. Deactivating training mode means
 batches are generated in order, from the first file to the last</p></li>
 <li><p><strong>affine_transform</strong> (<em>bool</em><em>, </em><em>optional</em>) – whether to perform an affine transform as a pre-step for every batch</p></li>
-<li><p><strong>ref</strong> (<em>string</em><em>, </em><em>optional</em>) – <p>what image to use as the reference fixed image <strong>in validation</strong>. Can be:
-- ‘first’: use the first frame of the video file
-- ‘last’: use the last frame of the video file
-- ‘mean’: use the mean over frames of the video file
-- ‘median’: use the median over frames of the video file
-.. note:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">**</span><span class="n">training</span><span class="o">**</span> <span class="n">uses</span> <span class="n">randomly</span> <span class="n">chosen</span> <span class="n">frames</span> <span class="k">as</span> <span class="n">reference</span><span class="o">.</span>
-</pre></div>
+<li><p><strong>ref</strong> (<em>string</em><em>, </em><em>optional</em>) – <p>what image to use as the reference fixed image <strong>in validation</strong>. Can be:</p>
+<ul>
+<li><p>’first’: use the first frame of the video file</p></li>
+<li><p>’last’: use the last frame of the video file</p></li>
+<li><p>’mean’: use the mean over frames of the video file</p></li>
+<li><p>’median’: use the median over frames of the video file</p></li>
+<li><p>’previous’: use the previous chronological frame. So, frame <span class="math notranslate nohighlight">\(I_t\)</span> will have as reference <span class="math notranslate nohighlight">\(I_{t-1}\)</span></p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>For all ref except ‘previous’, training uses randomly chosen frames as fixed reference.</p>
 </div>
-<p>Defaults to ‘first’</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Take into account that in validation during training, fixed frames will be sent to
+the loss function, and thus the outputted loss and score depends a lot on what <code class="docutils literal notranslate"><span class="pre">ref</span></code> you are using!</p>
+</div>
+<p>Defaults to ‘previous’</p>
 </p></li>
 <li><p><strong>keys</strong> (<em>list</em><em>, </em><em>optional</em>) – list of sequences that indicate which frames to take for each file by their index.
 You can specify some keys as None to use all frames, for ex.: <code class="docutils literal notranslate"><span class="pre">keys</span> <span class="pre">=</span> <span class="pre">[range(200),</span> <span class="pre">None]</span></code></p></li>
@@ -327,6 +374,11 @@ You can specify some keys as None to use all frames, for ex.: <code class="docut
 <dt class="sig sig-object py" id="stabilize2p.utils.vxm_register">
 <span class="sig-prename descclassname"><span class="pre">stabilize2p.utils.</span></span><span class="sig-name descname"><span class="pre">vxm_register</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model_weights_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strategy</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'default'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">key</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">tuple</span></span></span><a class="reference internal" href="_modules/stabilize2p/utils.html#vxm_register"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.utils.vxm_register" title="Permalink to this definition">¶</a></dt>
 <dd><p>Given a TIFF video path, and a voxelmorph model, stabilize the video.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This is intended for pre-trained models and not models trained with the <code class="docutils literal notranslate"><span class="pre">train-voxelmorph.py</span></code> script, as
+the required pre-processing steps are not performed.</p>
+</div>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>At the moment <code class="docutils literal notranslate"><span class="pre">out_flow</span></code> is an empty array.</p>

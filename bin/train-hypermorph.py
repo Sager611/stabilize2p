@@ -40,8 +40,8 @@ parser.add_argument('--l2', type=float, default=0,
 parser.add_argument('--initial-epoch', type=int, default=0,
                     help='initial epoch number (default: 0)')
 parser.add_argument('--load-weights', help='optional weights file to initialize with')
-parser.add_argument('--ref', default='first',
-                    help='reference frame to use when training. Either: first, last, mean or median (default: first)')
+parser.add_argument('--ref', default='previous',
+                    help='reference frame to use when training. This will affect the loss. Either: first, last, mean, median or previous (default: previous)')
 parser.add_argument('--validation-freq', type=int, default=50,
                     help='how often (in epochs) to calculate the validation loss. Set to -1 to disable (default: 50)')
 parser.add_argument('--validation-hyp', type=float, default=0.5,
@@ -86,6 +86,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 # ## Imports
 
 import gc
+import sys
 import time
 import json
 import pickle
@@ -142,8 +143,6 @@ def frame_gen(video):
 
 # ## Setup
 
-_LOGGER.info('script args: ' + str(vars(args)))
-
 # solves Hypermorph's compatibility issues
 tf1.disable_eager_execution()
 tf1.experimental.output_all_intermediates(True)
@@ -156,6 +155,16 @@ with open(args.config, 'r') as _config_f:
 np.random.seed(args.random_seed)
 
 os.makedirs(args.out_dir, exist_ok=True)
+
+# save logger outputs
+handler = logging.FileHandler(filename=args.out_dir + '/logs.txt')
+handler.setLevel(logging.DEBUG)
+formatter = \
+    logging.Formatter('[%(asctime)s] %(levelname).1s T%(thread)d %(filename)s:%(lineno)s: %(message)s')
+handler.setFormatter(formatter)
+_LOGGER.addHandler(handler)
+
+_LOGGER.info('script args: ' + str(vars(args)))
 
 # tensorflow device handling
 device, nb_devices = vxm.tf.utils.setup_device(args.gpu)
@@ -310,8 +319,8 @@ def train():
         nb_train_frames = np.sum([len(tiff.TiffFile(path).pages) for path in config['training_pool']])
         gc.collect()
         learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(
-                initial_learning_rate=args.lr[0],
-                decay_steps=int(nb_train_frames/args.batch_size),
+                initial_learning_rate=args.lr[0] * (lr_decay_factor**args.initial_epoch),
+                decay_steps=args.steps_per_epoch,
                 decay_rate=lr_decay_factor,
                 staircase=True)
 

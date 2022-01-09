@@ -19,7 +19,7 @@ from sklearn.utils import gen_batches
 from .utils import get_centers
 
 
-def EMD(video: np.ndarray, ref: str = 'previous', n_samples: int = 500, metric: str = 'euclidean') -> float:
+def EMD(video: np.ndarray, ref='previous', n_samples: int = 500, metric: str = 'euclidean') -> float:
     """Earth Moving Distance score (loosely inspired).
     
     This metric is not standard and it's not recomended to use practically, but only
@@ -35,9 +35,9 @@ def EMD(video: np.ndarray, ref: str = 'previous', n_samples: int = 500, metric: 
     ----------
     video : array
         n-dimensional video
-    ref : string, optional
+    ref : string or array, optional
         Reference frame/image to use as approx for round-truth.
-        Either: previous or first
+        Either: 'previous', 'first', or an array
         Default is 'previous'
     n_samples : array
         number of samples to take for each frame.
@@ -73,7 +73,12 @@ def EMD(video: np.ndarray, ref: str = 'previous', n_samples: int = 500, metric: 
         return d[assignment].sum() / n_samples
 
     with ThreadPoolExecutor() as executor:
-        if ref == 'previous':
+        if type(ref) is np.ndarray:
+            futures = [
+                executor.submit(loop, I, J)
+                for I, J in zip(video, ref)
+            ]
+        elif ref == 'previous':
             futures = [
                 executor.submit(loop, I, J)
                 # for each two consecutive frames
@@ -102,7 +107,10 @@ def NCC(video: np.ndarray, ref='previous', return_all=False) -> Union[float, np.
     for sl in gen_batches(video.shape[0], 128):
         # vxm NCC's assumes Ii, Ji are sized [batch_size, *vol_shape, nb_feats]
         frames = tf.convert_to_tensor(video[sl, ..., np.newaxis], dtype=np.float32)
-        if ref == 'previous':
+        if type(ref) is np.ndarray:
+            ref_frames = tf.convert_to_tensor(ref[sl, ..., np.newaxis], dtype=np.float32)
+            res += [vxm_ncc.loss(frames, ref_frames).numpy().squeeze()]
+        elif ref == 'previous':
             res += [vxm_ncc.loss(frames[1:], frames[:-1]).numpy().squeeze()]
         elif ref == 'first':
             ref_frames = tf.tile(
@@ -124,7 +132,7 @@ def NCC(video: np.ndarray, ref='previous', return_all=False) -> Union[float, np.
         return np.mean(res)
 
 
-def MSE(video: np.ndarray, ref: str = 'previous', return_all=False) -> Union[float, np.ndarray]:
+def MSE(video: np.ndarray, ref='previous', return_all=False) -> Union[float, np.ndarray]:
     """Return MSE score with respect to some reference image.
     
     This method is tested on 2D videos, but should work on 3D videos as well.
@@ -133,9 +141,9 @@ def MSE(video: np.ndarray, ref: str = 'previous', return_all=False) -> Union[flo
     ----------
     video : array
         Contains the video information
-    ref : string, optional
+    ref : string or array, optional
         Reference frame/image to use as approx for round-truth.
-        Either: previous, first, median or mean
+        Either: 'previous', 'first', 'median', 'mean' or an array
         Default is 'previous'
     return_all : bool, optional
         whether to return all MSE values for all frames or average the result
@@ -145,7 +153,9 @@ def MSE(video: np.ndarray, ref: str = 'previous', return_all=False) -> Union[flo
     """
     nb_frame_pixels = np.prod(video.shape[1:])
     
-    if ref == 'previous':
+    if type(ref) is np.ndarray:
+        I = ref.reshape((-1, nb_frame_pixels))
+    elif ref == 'previous':
         I = video[:-1].reshape((-1, nb_frame_pixels))
     elif ref == 'first':
         I = np.tile(video[0].ravel(), (video.shape[0], 1))

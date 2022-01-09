@@ -31,8 +31,8 @@ parser.add_argument('--epochs', type=int, default=200,
                     help='number of training epochs (default: 200)')
 parser.add_argument('--steps-per-epoch', type=int, default=100,
                     help='steps per epoch (default: 100)')
-parser.add_argument('--batch-size', type=int, default=1,
-                    help='training batch size, aka number of frames (default: 1)')
+parser.add_argument('--batch-size', type=int, default=8,
+                    help='training batch size, aka number of frames (default: 8)')
 parser.add_argument('--gpu', default='',
                     help='visible GPU ID numbers. Goes into "CUDA_VISIBLE_DEVICES" env var (default: use all GPUs)')
 parser.add_argument('--l2', type=float, default=0,
@@ -42,20 +42,22 @@ parser.add_argument('--initial-epoch', type=int, default=0,
 parser.add_argument('--load-weights', help='optional weights file to initialize with')
 parser.add_argument('--predict', action='store_true',
                     help='do not train, just load the model and predict on the dataset')
-parser.add_argument('--ref', default='first',
-                    help='reference frame to use when training. Either: first, last, mean or median (default: first)')
+parser.add_argument('--ref', default='previous',
+                    help='reference frame to use when training. This will affect the loss. Either: first, last, mean, median or previous (default: previous)')
 parser.add_argument('--validation-freq', type=int, default=10,
                     help='how often (in epochs) to calculate the validation loss (default: 10)')
 parser.add_argument('--lr', type=float, nargs='+',
-                    default=[1e-3, 1e-5],
+                    default=[1e-3, 1e-6],
                     help='learning rate. You can optionally provide this argument as'
-                    ' `initial_lr final_lr` and exponential decay will be applied (default: 1e-3 1e-5)')
+                    ' `initial_lr final_lr` and exponential decay will be applied (default: 1e-3 1e-6)')
 
 # network architecture parameters
 parser.add_argument('--enc', type=int, nargs='+',
                     help='list of unet encoder filters (default: 16 32 32 128 128)')
 parser.add_argument('--dec', type=int, nargs='+',
                     help='list of unet decorder filters (default: 128 128 32 32 32 16 16)')
+parser.add_argument('--int-resolution', type=int, default=2,
+                    help='Resolution (relative voxel size) of the flow field during vector integration (default: 2)')
 
 # loss hyperparameters
 parser.add_argument('--image-loss', default='ncc',
@@ -81,8 +83,10 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 # ## Imports
 
 import gc
+import sys
 import time
 import json
+import pickle
 import logging
 from itertools import cycle
 from collections import defaultdict
@@ -97,7 +101,7 @@ import neurite as ne
 from matplotlib import pyplot as plt
 from sklearn.utils import gen_batches
 
-from stabilize2p.utils import make_video, get_strategy, vxm_data_generator
+from stabilize2p.utils import make_video, get_strategy, vxm_data_generator, vxm_undo_preprocessing
 
 # logger
 _LOGGER = logging.getLogger('stabilize2p')
@@ -133,8 +137,6 @@ def frame_gen(video):
 
 # ## Setup
 
-_LOGGER.info('script args: ' + str(vars(args)))
-
 # read configuration file
 config = defaultdict()
 with open(args.config, 'r') as _config_f:
@@ -143,6 +145,16 @@ with open(args.config, 'r') as _config_f:
 np.random.seed(args.random_seed)
 
 os.makedirs(args.out_dir, exist_ok=True)
+
+# save logger outputs
+handler = logging.FileHandler(filename=args.out_dir + '/logs.txt')
+handler.setLevel(logging.DEBUG)
+formatter = \
+    logging.Formatter('[%(asctime)s] %(levelname).1s T%(thread)d %(filename)s:%(lineno)s: %(message)s')
+handler.setFormatter(formatter)
+_LOGGER.addHandler(handler)
+
+_LOGGER.info('script args: ' + str(vars(args)))
 
 strategy = get_strategy('GPU')
 
@@ -172,7 +184,10 @@ class L2Loss():
 def train():
     # build model using VxmDense
     with strategy.scope():
-        vxm_model = vxm.networks.VxmDense(in_shape, [enc_nf, dec_nf], int_steps=0)
+        vxm_model = vxm.networks.VxmDense(in_shape,
+                                          [enc_nf, dec_nf],
+                                          int_steps=0,  # non-diffeomorphic warp
+                                          int_resolution=args.int_resolution)
 
     # load initial weights (if provided)
     if args.load_weights:
@@ -226,8 +241,8 @@ def train():
         nb_train_frames = np.sum([len(tiff.TiffFile(path).pages) for path in config['training_pool']])
         gc.collect()
         learning_rate = tf.keras.optimizers.schedules.ExponentialDecay(
-                initial_learning_rate=args.lr[0],
-                decay_steps=int(nb_train_frames/args.batch_size),
+                initial_learning_rate=args.lr[0] * (lr_decay_factor**args.initial_epoch),
+                decay_steps=args.steps_per_epoch,
                 decay_rate=lr_decay_factor,
                 staircase=True)
 
@@ -241,9 +256,13 @@ def train():
                           metrics=metrics)
 
     # data generators
-    train_generator = vxm_data_generator(config['training_pool'], batch_size=args.batch_size, ref=args.ref)
+    train_generator = vxm_data_generator(config['training_pool'],
+                                         batch_size=args.batch_size,
+                                         ref=args.ref)
     if config['validation_pool']:
-        val_generator = vxm_data_generator(config['validation_pool'], batch_size=args.batch_size, ref=args.ref, training=False)
+        val_generator = vxm_data_generator(config['validation_pool'],
+                                           batch_size=args.batch_size,
+                                           ref=args.ref, training=False)
         # when training=False, the generator generates the frames once,
         # but tensorflow requires it to cycle in order to use it multiple
         # times
@@ -274,10 +293,18 @@ def train():
 
 
     # plot history
-    import pickle
     import matplotlib.pyplot as plt
 
-    def plot_history(hist, loss_names=['loss', 'val_loss']):
+    def plot_history(epoch, history,
+                     reference_losses={},
+                     loss_names={
+                         'vxm_dense_transformer_loss': f'train {args.image_loss}',
+                         'val_vxm_dense_transformer_loss': f'val {args.image_loss}',
+                         'loss': f'train loss',
+                         'val_loss': f'val loss'
+                     }):
+        if type(loss_names) is list:
+            loss_names = {v: v for v in loss_names}
         # Simple function to plot training history.
         plt.figure(figsize=(10, 6))
 
@@ -285,26 +312,26 @@ def train():
         c = cycle(color)
 
         # training losses
-        for loss_name in loss_names:
-            if loss_name in hist.history:
+        for loss_name, label in loss_names.items():
+            if loss_name in history:
                 # crude way to retrieve loss calculation frequency
-                N = len(hist.epoch)
-                M = len(hist.history[loss_name])
+                N = len(epoch)
+                M = len(history[loss_name])
                 freq = N // M
 
                 plt.plot(np.arange(freq, N+1, freq)[:M],
-                         hist.history[loss_name], '.-', c=next(c), label=loss_name)
+                         history[loss_name], '.-', c=next(c), label=label)
 
         # user-provided reference losses
-        for label, value in config["reference_losses"].items():
+        for label, value in reference_losses.items():
             plt.axhline(value, label=label, ls='--', c=next(c))
 
-        plt.ylabel(args.image_loss + '+flow loss')
+        plt.ylabel('losses')
         plt.xlabel('epoch')
         plt.title('Training loss')
         plt.legend()
         # y-axis limits to see losses better
-        losses = np.concatenate([l for l in hist.history.values()] + [[v] for v in config["reference_losses"].values()])
+        losses = np.concatenate([l for l in history.values()] + [[v] for v in reference_losses.values()])
         low = np.min(losses)
         hig = np.quantile(losses, 0.90)
         ds = hig - low
@@ -318,7 +345,7 @@ def train():
         pickle.dump({'epoch': hist.epoch, 'history': hist.history}, file)
         _LOGGER.info('saved history')
 
-    plot_history(hist)
+    plot_history(hist.epoch, hist.history, config['reference_losses'])
     _LOGGER.info('plotted history')
 
     # no more need for the model
@@ -336,7 +363,7 @@ if not args.predict:
 
 # if there are validation tests
 if config['validation_pool']:
-    _LOGGER.info('starting validation..', flush=True)
+    _LOGGER.info('starting validation..')
     t1 = time.perf_counter()
     
     # build model using VxmDense
@@ -346,7 +373,7 @@ if config['validation_pool']:
     # load weights
     path = save_filename.format(epoch=args.epochs)
     vxm_model.load_weights(path)
-    _LOGGER.info(f'loaded model from: {path}', flush=True)
+    _LOGGER.info(f'loaded model from: {path}')
     
     # predict validation-set
     # TODO: make multiple validations possible!
@@ -368,19 +395,15 @@ if config['validation_pool']:
     # can't do this or we run out of memory!
     # val_pred = vxm_model.predict(val_generator)
 
-    # undo pre-processing
-    params = store_params[0]
-    h, l = params.pop('hig'), params.pop('low')
-    val_pred[0] = val_pred[0] * (h - l) + l
-    val_pred[0] = np.exp(val_pred[0]) - 1
-    val_pred[0] = val_pred[0] + params['bg_thresh']
+    # save params to file
+    with open(args.out_dir + '/params.pkl', 'wb') as file:
+        pickle.dump(store_params[0], file)
+    np.save(args.out_dir + '/validation-results', val_pred[0])
 
     t2 = time.perf_counter()
     _LOGGER.info(f'Predicted validation in {t2-t1:.2f}s | '
-          f'{val_pred[0].shape[0]/(t2-t1):,.0f} frames/s | {(t2-t1)/val_pred[0].shape[0]:.4g} s/frame',
-          flush=True)
+          f'{val_pred[0].shape[0]/(t2-t1):,.0f} frames/s | {(t2-t1)/val_pred[0].shape[0]:.4g} s/frame')
 
-    np.save(args.out_dir + '/validation-video', val_pred[0])
     np.save(args.out_dir + '/validation-flow', val_pred[1])
     
     # visualize flow
@@ -389,5 +412,6 @@ if config['validation_pool']:
     plt.savefig(args.out_dir + '/example-flow.svg')
     
     # generate validation video
+    val_pred[0] = vxm_undo_preprocessing(val_pred[0], store_params[0])  # undo pre-processing
     make_video(args.out_dir + '/validation-video', frame_gen(val_pred[0]))
-    _LOGGER.info('generated validation video', flush=True)
+    _LOGGER.info('generated validation video')

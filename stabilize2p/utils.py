@@ -45,7 +45,7 @@ def hypermorph_optimal_register(image_pool: list,
                                 num_hyp: int = 20,
                                 gpu: str = '0',
                                 metric='model-ncc',
-                                return_optimal_hyp=False):
+                                return_optimal_hyp: bool = False):
     """Register using a Hypermorph model by optimizing its hyperparameter per-frame using some heuristic metric.
 
     This function calculates :math:`L_{sim}(I_t, I_{t-1})` for each pair of frames :math:`I_t, I_{t-1}` each
@@ -71,8 +71,8 @@ def hypermorph_optimal_register(image_pool: list,
         gpu numbers to use. Default is '0'
     metric: str or function, optional
         which similarity metric to use between consecutive frames.
-        Default is 'model-ncc', which uses NCC as the similarity loss, and l2 of the gradient as an additional
-        smoothness loss. In particular, for each image pair :math:`I_t, I_{t-1}` the metric is:
+        Default is 'model-ncc', which uses NCC as the similarity loss, and l2 of the flow gradient as an
+        additional smoothness loss. In particular, for each image pair :math:`I_t, I_{t-1}` the metric is:
         
         .. math::
         
@@ -82,7 +82,7 @@ def hypermorph_optimal_register(image_pool: list,
         
         You can instead specify 'model-mse', which will use MSE as the similarity loss.
         
-        Further details for other metrics are found in :func:`scipy.spatial.distance.cdist`
+        Further details for other metrics are found in `scipy.spatial.distance.cdist <https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.distance.cdist.html>`_
     return_optimal_hyp: bool, optional
         whether to also return the array of found optimal hyperparameters for each frame.
         Default is False
@@ -153,8 +153,11 @@ def hypermorph_optimal_register(image_pool: list,
     del inputs
     gc.collect()
 
-    # shape: (num_hyp, 1)
+    # compute metric scores for all consecutive frame pairs
+    # as a sparse matrix representing a graph, so we can find the
+    # shortest paths later
     t1 = time.perf_counter()
+    # shape: (num_hyp, 1)
     hyper_params = np.linspace(0, 1, num_hyp)[:, np.newaxis]
     sg_data = []
     sg_indices = []
@@ -186,39 +189,8 @@ def hypermorph_optimal_register(image_pool: list,
             # shape: (num_hyp, W, H)
             J = vxm_model.predict((in_moving, in_fixed, in_hyp))[0].squeeze()
             J = J.reshape((num_hyp, -1))
-
-        # calcuate metric and add to the score graph
-        # if metric == 'model':
-            # SLOWER
-            # # transform to shape: (num_hyp**2, W, H, 1)
-            # x, fx = np.repeat(I, num_hyp, axis=0), np.repeat(I_flow, num_hyp, axis=0)
-            # tile = np.ones_like(J.shape)
-            # tile[0] = num_hyp
-            # y, fy = np.tile(J, tile), np.tile(J_flow, tile)
-            # fx = tf.convert_to_tensor(fx)
-            # fy = tf.convert_to_tensor(fy)
-            # x = tf.convert_to_tensor(x)
-            # y = tf.convert_to_tensor(y)
-
-            # # scores matrix. Rows are I, Cols are J
-            # scores = model_loss(x, y, fx, fy).numpy().squeeze()
-            # del x, y, fx, fy
-            # scores = scores.reshape((num_hyp, num_hyp))
-
-            # FASTER
-            # with ThreadPoolExecutor() as executor:
-            #         futures = [
-            #             [
-            #                 executor.submit(model_loss, img_prev[None, ...], img_next[None, ...], flow_prev[None, ...], flow_next[None, ...])
-            #                 for img_next, flow_next in zip(J, J_flow)
-            #             ] for img_prev, flow_prev in zip(I, I_flow)
-            #         ]
-            #         scores = np.array([[f.result() for f in row] for row in futures])
-            #         scores = scores.squeeze()
-
             
         if metric.startswith('model'):
-            # EVEN FASTER
             # 0.5 * MSE(I, J) + 0.25 * flow_loss(I) + 0.25 * flow_loss(J)
             #  or
             # 0.5 * NCC(I, J) + 0.25 * flow_loss(I) + 0.25 * flow_loss(J)
@@ -232,7 +204,7 @@ def hypermorph_optimal_register(image_pool: list,
                         scores.flatten()]
 
         I = J
-        if metric == 'model':
+        if metric.startswith('model'):
             I_flow_loss = J_flow_loss
 
     sg_indptr = np.arange(0, sg_indices.size+1, num_hyp)
@@ -247,7 +219,9 @@ def hypermorph_optimal_register(image_pool: list,
     N = moving.shape[0]*num_hyp
     score_graph = csr_matrix((sg_data, sg_indices, sg_indptr), shape=(N, N))
     t2 = time.perf_counter()
-    _LOGGER.info(f'Calcuated scores. Elapsed {t2-t1:.2f}s | {moving.shape[0]/(t2-t1):.0f} frames/s | {(t2-t1)/moving.shape[0]:.4f} s/frame')
+    _LOGGER.info(f'Calcuated scores. Elapsed {t2-t1:.2f}s '
+                 f'| {moving.shape[0]/(t2-t1):.0f} frames/s '
+                 f'| {(t2-t1)/moving.shape[0]:.4f} s/frame')
 
     t1 = time.perf_counter()
     # dist_matrix shape: (num_hyp, N_nodes)
@@ -377,7 +351,7 @@ def vxm_preprocessing(x, affine_transform=True, params=None):
 
     # TODO: does this improve accuracy?
     x = np.log(1 + x)
-    x = np.clip(x, 0, None)  # numerical errors can make x negative
+    np.clip(x, 0, None, out=x)  # numerical errors can make x negative
 
     # normalize to [0, 1]
     low = x.min() if params is None else params['low']
@@ -406,14 +380,14 @@ def vxm_preprocessing(x, affine_transform=True, params=None):
     return x, dict(low=low, hig=hig, bg_thresh=th, ref=ref, nb_frames=x.shape[0])
 
 
-def vxm_undo_preprocessing(x: np.ndarray, params) -> np.ndarray:
+def vxm_undo_preprocessing(x: np.ndarray, params: dict) -> np.ndarray:
     """Undo transformations of :func:`stabilize2p.utils.vxm_preprocessing`.
 
     Parameters
     ----------
     x : array
         output array from :func:`stabilize2p.utils.vxm_preprocessing`
-    params : dict or list of dict
+    params : dict
         output calculated parameters dict from :func:`stabilize2p.utils.vxm_preprocessing`
     Returns
     -------
@@ -431,16 +405,18 @@ def vxm_data_generator(file_pool,
                        batch_size=8,
                        training=True,
                        affine_transform=True,
-                       ref='first',
+                       ref='previous',
                        keys=None,
                        store_params=[]):
-    """
-    Generator that takes in data of size [N, H, W], and yields data for
-    our custom vxm model. Note that we need to provide numpy data for each
-    input, and each output.
+    """Generator that takes in a TIFF file path or list of paths, and yields data for
+    a Voxelmorph model.
 
-    inputs:  moving [bs, H, W, 1], fixed image [bs, H, W, 1]
-    outputs: moved image [bs, H, W, 1], zero-gradient [bs, H, W, 2]
+    Yielded tuples are of the form::
+
+        inputs:  moving [bs, H, W, 1], fixed image [bs, H, W, 1]
+        outputs: moved image [bs, H, W, 1], zero-gradient [bs, H, W, 2]
+
+    where ``bs`` is the batch size.
     
     Parameters
     ----------
@@ -456,15 +432,23 @@ def vxm_data_generator(file_pool,
         whether to perform an affine transform as a pre-step for every batch
     ref : string, optional
         what image to use as the reference fixed image **in validation**. Can be:
+
         - 'first': use the first frame of the video file
         - 'last': use the last frame of the video file
         - 'mean': use the mean over frames of the video file
         - 'median': use the median over frames of the video file
+        - 'previous': use the previous chronological frame. So, frame :math:`I_t` will have as reference :math:`I_{t-1}`
+
         .. note::
 
-            **training** uses randomly chosen frames as reference.
+            For all ref except 'previous', training uses randomly chosen frames as fixed reference.
 
-        Defaults to 'first'
+        .. warning::
+
+            Take into account that in validation during training, fixed frames will be sent to
+            the loss function, and thus the outputted loss and score depends a lot on what ``ref`` you are using!
+
+        Defaults to 'previous'
     keys : list, optional
         list of sequences that indicate which frames to take for each file by their index.
         You can specify some keys as None to use all frames, for ex.: ``keys = [range(200), None]``
@@ -505,8 +489,10 @@ def vxm_data_generator(file_pool,
         _extract_ref = lambda x: np.mean(x, axis=0)
     elif ref == 'median':
         _extract_ref = lambda x: np.median(x, axis=0)
+    elif ref == 'previous':
+        _extract_ref = lambda x: np.mean(x, axis=0)  # for the CoM calculation in vxm_preprocessing
     else:
-        raise ValueError(f'``ref`` arg must be: first, last, mean or median. Provided: {ref}')
+        raise ValueError(f'``ref`` arg must be: first, last, mean, median or previous. Provided: {ref}')
 
     for key, file_path in zip(keys, file_pool):
         video = tiff.imread(file_path, key=key)
@@ -543,13 +529,18 @@ def vxm_data_generator(file_pool,
             # parameters for the file image from vxm_preprocessing
             params = store_params[file_i]
 
-            idx = np.random.randint(0, nb_frames, size=2*batch_size)
+            if ref == 'previous':
+                idx = np.random.randint(1, nb_frames, size=batch_size)
+                idx = np.concatenate([idx, idx-1])
+            else:
+                idx = np.random.randint(0, nb_frames, size=2*batch_size)
             x_data = tiff.imread(file_pool[file_i], key=key[idx])
             x_data, _ = vxm_preprocessing(
                 x_data, 
                 affine_transform=affine_transform,
                 params=params
             )
+            x_data = x_data[..., np.newaxis]
 
             # TODO: should we use constant references, or random?
             # fixed = params['ref'][np.newaxis, ..., np.newaxis]
@@ -557,8 +548,8 @@ def vxm_data_generator(file_pool,
 
             # prepare inputs:
             # images need to be of the size [batch_size, H, W, 1]
-            moving_images = x_data[:batch_size, ..., np.newaxis]
-            fixed = x_data[batch_size:, ..., np.newaxis]
+            moving_images = x_data[:batch_size]
+            fixed = x_data[batch_size:]
             inputs = [moving_images, fixed]
 
             # prepare outputs (the 'true' moved image):
@@ -579,7 +570,7 @@ def vxm_data_generator(file_pool,
     else:
         for file_i, (file_path, key) in enumerate(zip(file_pool, keys)):
             if key is None:
-                f = tiff.TiffFile(file_pool[file_i])
+                f = tiff.TiffFile(file_path)
                 nb_frames = len(f.pages)
                 f.close()
                 key = np.arange(nb_frames)
@@ -592,21 +583,28 @@ def vxm_data_generator(file_pool,
             params = store_params[file_i]
 
             for idx in gen_batches(nb_frames, batch_size):
+                if ref == 'previous':
+                    idx = np.arange(nb_frames)[idx]
+                    idx = np.concatenate([idx, np.clip(idx-1, 0, None)])
                 x_data = tiff.imread(file_path, key=key[idx])
-                if batch_size == 1:
-                    x_data = x_data[np.newaxis, ...]
                 x_data, _ = vxm_preprocessing(
                     x_data, 
                     affine_transform=affine_transform,
                     params=params
                 )
+                x_data = x_data[..., np.newaxis]
 
-                fixed = params['ref'][np.newaxis, ..., np.newaxis]
-                fixed = np.tile(fixed, (x_data.shape[0], 1, 1, 1))
+                if ref == 'previous':
+                    slice_size = idx.size//2
+                    moving_images = x_data[:slice_size]
+                    fixed = x_data[slice_size:]
+                else:
+                    moving_images = x_data
+                    fixed = params['ref'][np.newaxis, ..., np.newaxis]
+                    fixed = np.tile(fixed, (x_data.shape[0], 1, 1, 1))
 
                 # prepare inputs:
                 # images need to be of the size [batch_size, H, W, 1]
-                moving_images = x_data[..., np.newaxis]
                 inputs = [moving_images, fixed]
 
                 # prepare outputs (the 'true' moved image):
@@ -787,8 +785,14 @@ def reconstruct_video(moved_subimgs: np.ndarray,
 
 def vxm_register(video_path: str, model_weights_path: str, batch_size: int = 5, strategy: str = 'default', key=None) -> tuple:
     """Given a TIFF video path, and a voxelmorph model, stabilize the video.
+
+    .. note::
+
+        This is intended for pre-trained models and not models trained with the ``train-voxelmorph.py`` script, as 
+        the required pre-processing steps are not performed.
     
     .. warning:: 
+
         At the moment ``out_flow`` is an empty array.
 
     Parameters
@@ -832,7 +836,7 @@ def vxm_register(video_path: str, model_weights_path: str, batch_size: int = 5, 
     _LOGGER.info(f'Loaded model in {t2-t1:.2g}s')
     
     # print model's layers and info
-    vxm_model.summary(line_length = 180)
+    vxm_model.summary(line_length=180)
     
     target_shape = tuple(vxm_model.input[0].shape[1:])
     _LOGGER.info(f'{target_shape=}')
