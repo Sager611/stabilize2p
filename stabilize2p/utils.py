@@ -43,9 +43,11 @@ def hypermorph_optimal_register(image_pool: list,
                                 hypermorph_path: str,
                                 keys: list = None,
                                 num_hyp: int = 20,
-                                gpu: str = '0',
+                                # gpu: str = '0',
                                 metric='model-ncc',
-                                return_optimal_hyp: bool = False):
+                                return_optimal_hyp: bool = False,
+                                undo_preprocessing_output: bool = True,
+                                store_params: list = []):
     """Register using a Hypermorph model by optimizing its hyperparameter per-frame using some heuristic metric.
 
     This function calculates :math:`L_{sim}(I_t, I_{t-1})` for each pair of frames :math:`I_t, I_{t-1}` each
@@ -67,8 +69,6 @@ def hypermorph_optimal_register(image_pool: list,
         number of hyperparameters between [0, 1] to use. For example, if ``num_hyp=3``, then the considered
         hyperparameters will be ``[0. , 0.5, 1. ]``.
         Default is 20
-    gpu: str, optional
-        gpu numbers to use. Default is '0'
     metric: str or function, optional
         which similarity metric to use between consecutive frames.
         Default is 'model-ncc', which uses NCC as the similarity loss, and l2 of the flow gradient as an
@@ -86,10 +86,17 @@ def hypermorph_optimal_register(image_pool: list,
     return_optimal_hyp: bool, optional
         whether to also return the array of found optimal hyperparameters for each frame.
         Default is False
+    undo_preprocessing_output: bool, optional
+        whether to undo the pre-processing steps on the Hypermorph model's output before returning it.
+        Default is True
+    store_params : list, optional
+        if provided, calculated pre-processing parameters for each file in the pool will be stored in this list
     Returns
     -------
     array or tuple of arrays
-        registered images. If ``return_optimal_hyp`` is True, also returns array of optimal hyperparameters
+        registered images. If ``return_optimal_hyp`` is True, also returns array of optimal hyperparameters.
+        If ``undo_preprocessing_output`` is False, the outputted images will come from the model's prediction as-is,
+        without undoing the applied pre-processing steps
     """
     if type(image_pool) is str:
         image_pool = [image_pool]
@@ -129,15 +136,15 @@ def hypermorph_optimal_register(image_pool: list,
         int_downsize = vxm_model.outputs[0].shape[1] // vxm_model.outputs[1].shape[1]
         grad_loss = vxm.losses.Grad('l2', loss_mult=int_downsize).loss
 
-    # tensorflow device handling
-    device, nb_devices = vxm.tf.utils.setup_device(gpu)
+    # Hypermorph currently does not support GPU!
+    # # tensorflow device handling
+    # device, nb_devices = vxm.tf.utils.setup_device(gpu)
 
-    # multi-gpu support
-    if nb_devices > 1:
-        vxm_model = tf.keras.utils.multi_gpu_model(vxm_model, gpus=nb_devices)
+    # # multi-gpu support
+    # if nb_devices > 1:
+    #     vxm_model = tf.keras.utils.multi_gpu_model(vxm_model, gpus=nb_devices)
 
     # retrieve images as input
-    store_params = []
     base_gen = vxm_data_generator(image_pool,
                                   keys=keys,
                                   training=False,
@@ -258,13 +265,14 @@ def hypermorph_optimal_register(image_pool: list,
     optimal_hyp = optimal_hyp[:, np.newaxis]
     moved = vxm_model.predict((moving, fixed, optimal_hyp))[0].squeeze()
     del vxm_model
-    
-    # undo pre-processing transformations
-    i = 0
-    for params in store_params:
-        idx = slice(i, i+params['nb_frames'])
-        moved[idx] = vxm_undo_preprocessing(moved[idx], params)
-        i += params['nb_frames']
+
+    if undo_preprocessing_output:
+        # undo pre-processing transformations
+        i = 0
+        for params in store_params:
+            idx = slice(i, i+params['nb_frames'])
+            moved[idx] = vxm_undo_preprocessing(moved[idx], params)
+            i += params['nb_frames']
     if return_optimal_hyp:
         return moved, optimal_hyp
     else:

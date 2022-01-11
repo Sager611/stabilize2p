@@ -34,7 +34,7 @@ parser.add_argument('--steps-per-epoch', type=int, default=100,
                     help='steps per epoch (default: 100)')
 parser.add_argument('--batch-size', type=int, default=1,
                     help='training batch size, aka number of frames (default: 1)')
-parser.add_argument('--gpu', default='0', help='GPU ID numbers (default: 0)')
+# parser.add_argument('--gpu', default='0', help='GPU ID numbers (default: 0)')
 parser.add_argument('--l2', type=float, default=0,
                     help='l2 regularization on the network weights (default: 0)')
 parser.add_argument('--initial-epoch', type=int, default=0,
@@ -47,9 +47,9 @@ parser.add_argument('--validation-freq', type=int, default=50,
 parser.add_argument('--validation-hyp', type=float, default=0.5,
                     help='what hyper-parameter value to use in validation. Should be in the interval [0, 1] (default: 0.5)')
 parser.add_argument('--lr', type=float, nargs='+',
-                    default=[1e-3, 1e-5],
+                    default=[1e-3, 1e-6],
                     help='learning rate. You can optionally provide this argument as'
-                    ' `initial_lr final_lr` and exponential decay will be applied (default: 1e-3 1e-5)')
+                    ' `initial_lr final_lr` and exponential decay will be applied (default: 1e-3 1e-6)')
 
 # network architecture parameters
 parser.add_argument('--enc', type=int, nargs='+',
@@ -72,12 +72,17 @@ parser.add_argument('--image-sigma', type=float, default=0.05,
 args = parser.parse_args()
 
 assert len(args.lr) <= 2, '--lr should be 1 or 2 arguments'
+if (args.initial_epoch > 0) and (not args.load_weights):
+    raise ValueError('given that your initial epoch (--initial-epoch) is >0, please provide --load-weights for the initial model weights')
 
 ######################################################################
 
 # validate arguments
 if args.initial_epoch >= args.epochs:
     raise ValueError('--initial-epoch must be strictly lower than --epochs')
+
+# GPU not supported!
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 # suppress info and warn TF logs
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -166,10 +171,11 @@ _LOGGER.addHandler(handler)
 
 _LOGGER.info('script args: ' + str(vars(args)))
 
-# tensorflow device handling
-device, nb_devices = vxm.tf.utils.setup_device(args.gpu)
-assert np.mod(args.batch_size, nb_devices) == 0, \
-    'Batch size (%d) should be a multiple of the nr of gpus (%d)' % (args.batch_size, nb_devices)
+# GPU is currently not supported!
+# # tensorflow device handling
+# device, nb_devices = vxm.tf.utils.setup_device(args.gpu)
+# assert np.mod(args.batch_size, nb_devices) == 0, \
+#     'Batch size (%d) should be a multiple of the nr of gpus (%d)' % (args.batch_size, nb_devices)
 
 # unet architecture
 enc_nf = args.enc if args.enc else [16, 32, 32, 32]
@@ -272,10 +278,6 @@ def train():
     _LOGGER.info('input shape:  ' + ', '.join([str(t.shape) for t in vxm_model.inputs]))
     _LOGGER.info('output shape: ' + ', '.join([str(t.shape) for t in vxm_model.outputs]))
     
-    # save script's arguments in the model
-    # vxm_model.references.script_args = vars(args)
-    # _LOGGER.info('storing args in the model:' + str(vars(args)))
-
     # ## Loss
 
     # prepare image similarity loss
@@ -296,13 +298,14 @@ def train():
         hyp = tf.squeeze(vxm_model.references.hyper_val)
         return hyp * vxm.losses.Grad('l2', loss_mult=args.int_downsize).loss(y_true, y_pred)
 
-    # multi-gpu support
-    if nb_devices > 1:
-        save_callback = vxm.networks.ModelCheckpointParallel(save_filename)
-        vxm_model = tf.keras.utils.multi_gpu_model(vxm_model, gpus=nb_devices)
-    else:
-        # save model every 100 epochs
-        save_callback = tf.keras.callbacks.ModelCheckpoint(save_filename, save_freq=args.steps_per_epoch*100)
+    # GPU is not currently supported! (this code may or may not work!)
+    # # multi-gpu support
+    # if nb_devices > 1:
+    #     save_callback = vxm.networks.ModelCheckpointParallel(save_filename)
+    #     vxm_model = tf.keras.utils.multi_gpu_model(vxm_model, gpus=nb_devices)
+    # else:
+    # save model every 100 epochs
+    save_callback = tf.keras.callbacks.ModelCheckpoint(save_filename, save_freq=args.steps_per_epoch*100)
 
     # ## Compile model
     if len(args.lr) == 1:
@@ -340,13 +343,22 @@ def train():
                          verbose=1);
 
     # save last epoch
-    vxm_model.save_weights(save_filename.format(epoch=args.epochs))
+    vxm_model.save(save_filename.format(epoch=args.epochs))
 
 
     # plot history
     import matplotlib.pyplot as plt
 
-    def plot_history(hist, loss_names=['loss', 'val_loss']):
+    def plot_history(epoch, history,
+                     reference_losses={},
+                     loss_names={
+                         'hyper_vxm_dense_transformer_loss': f'train {args.image_loss}',
+                         'val_hyper_vxm_dense_transformer_loss': f'val {args.image_loss}',
+                         'loss': f'train loss',
+                         'val_loss': f'val loss'
+                     }):
+        if type(loss_names) is list:
+            loss_names = {v: v for v in loss_names}
         # Simple function to plot training history.
         plt.figure(figsize=(10, 6))
 
@@ -354,24 +366,31 @@ def train():
         c = cycle(color)
 
         # training losses
-        for loss_name in loss_names:
-            if loss_name in hist.history:
+        for loss_name, label in loss_names.items():
+            if loss_name in history:
                 # crude way to retrieve loss calculation frequency
-                N = len(hist.epoch)
-                M = len(hist.history[loss_name])
+                N = len(epoch)
+                M = len(history[loss_name])
                 freq = N // M
 
                 plt.plot(np.arange(freq, N+1, freq)[:M],
-                         hist.history[loss_name], '.-', c=next(c), label=loss_name)
+                         history[loss_name], '.-', c=next(c), label=label)
 
         # user-provided reference losses
-        for label, value in config["reference_losses"].items():
+        for label, value in reference_losses.items():
             plt.axhline(value, label=label, ls='--', c=next(c))
 
-        plt.ylabel(args.image_loss + '+flow loss')
+        plt.ylabel('losses')
         plt.xlabel('epoch')
         plt.title('Training loss')
         plt.legend()
+        # y-axis limits to see losses better
+        losses = np.concatenate([l for l in history.values()] + [[v] for v in reference_losses.values()])
+        low = np.min(losses)
+        hig = np.quantile(losses, 0.90)
+        ds = hig - low
+        plt.ylim(low + 0.02*np.sign(low)*ds, hig + 0.01*np.sign(hig)*ds)
+        # save plot
         plt.savefig(args.out_dir + '/history.svg')
 
 
@@ -380,7 +399,7 @@ def train():
         pickle.dump({'epoch': hist.epoch, 'history': hist.history}, file)
         _LOGGER.info('saved history')
 
-    plot_history(hist)
+    plot_history(hist.epoch, hist.history, config['reference_losses'])
     _LOGGER.info('plotted history')
 
     # no more need for the model

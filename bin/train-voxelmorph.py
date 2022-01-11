@@ -289,7 +289,7 @@ def train():
                          verbose=1);
 
     # save last epoch
-    vxm_model.save_weights(save_filename.format(epoch=args.epochs))
+    vxm_model.save(save_filename.format(epoch=args.epochs))
 
 
     # plot history
