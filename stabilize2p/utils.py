@@ -29,254 +29,11 @@ from sklearn.utils import gen_batches
 from pystackreg import StackReg
 from tensorflow.keras import backend as K
 from scipy import ndimage as ndi
-from scipy.sparse import csr_matrix
-from scipy.spatial.distance import cdist
-from scipy.sparse.csgraph import shortest_path
 
 from . import register
 from . import threshold
 
 _LOGGER = logging.getLogger('stabilize2p')
-
-
-def hypermorph_optimal_register(image_pool: list,
-                                hypermorph_path: str,
-                                keys: list = None,
-                                num_hyp: int = 20,
-                                # gpu: str = '0',
-                                metric='model-ncc',
-                                return_optimal_hyp: bool = False,
-                                undo_preprocessing_output: bool = True,
-                                store_params: list = []):
-    """Register using a Hypermorph model by optimizing its hyperparameter per-frame using some heuristic metric.
-
-    This function calculates :math:`L_{sim}(I_t, I_{t-1})` for each pair of frames :math:`I_t, I_{t-1}` each
-    generated with ``num_hyp`` [0, 1] values for the hyperparameter, and with some metric :math:`L_{sim}`.
-    Then, the optimal hyperparameters per-frame are calculated by the shortest weighted path from :math:`I_0`
-    to :math:`I_{nb\_frames}`. Finally, with these hyperparameters, the images from ``image_pool`` are
-    registered and returned as an array.
-
-    Parameters
-    ----------
-    image_pool : str or list
-        path or list of paths to the TIFF files to register
-    hypermorph_path : str
-        path to the saved weights of the Hypermorph model in h5 format
-    keys: list, optional
-        same argument as for :func:`stabilize2p.utils.vxm_data_generator`, indicates which frames to use for
-        each file in the pool. Defaults to use all frames
-    num_hyp: int, optional
-        number of hyperparameters between [0, 1] to use. For example, if ``num_hyp=3``, then the considered
-        hyperparameters will be ``[0. , 0.5, 1. ]``.
-        Default is 20
-    metric: str or function, optional
-        which similarity metric to use between consecutive frames.
-        Default is 'model-ncc', which uses NCC as the similarity loss, and l2 of the flow gradient as an
-        additional smoothness loss. In particular, for each image pair :math:`I_t, I_{t-1}` the metric is:
-        
-        .. math::
-        
-            0.5 * L_{sim}(I_t, I_{t-1}) + 0.25 * L_{grad}(\phi_t) + 0.25 * L_{grad}(\phi_{t+1})
-            
-        Where :math:`\phi_t` is the gradient of the predicted flow for :math:`I_t`.
-        
-        You can instead specify 'model-mse', which will use MSE as the similarity loss.
-        
-        Further details for other metrics are found in `scipy.spatial.distance.cdist <https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.distance.cdist.html>`_
-    return_optimal_hyp: bool, optional
-        whether to also return the array of found optimal hyperparameters for each frame.
-        Default is False
-    undo_preprocessing_output: bool, optional
-        whether to undo the pre-processing steps on the Hypermorph model's output before returning it.
-        Default is True
-    store_params : list, optional
-        if provided, calculated pre-processing parameters for each file in the pool will be stored in this list
-    Returns
-    -------
-    array or tuple of arrays
-        registered images. If ``return_optimal_hyp`` is True, also returns array of optimal hyperparameters.
-        If ``undo_preprocessing_output`` is False, the outputted images will come from the model's prediction as-is,
-        without undoing the applied pre-processing steps
-    """
-    if type(image_pool) is str:
-        image_pool = [image_pool]
-
-    # get frame shape
-    inshape = tiff.imread(image_pool[0], key=0).shape
-    nfeats = 1
-
-    # load model
-    K.clear_session()
-    vxm_model = vxm.networks.HyperVxmDense.load(hypermorph_path)
-    _LOGGER.info('model input shape:  ' + ', '.join([str(t.shape) for t in vxm_model.inputs]))
-    _LOGGER.info('model output shape: ' + ', '.join([str(t.shape) for t in vxm_model.outputs]))
-
-    if metric.startswith('model'):
-        # prepare loss functions
-        image_loss = metric.split('-')[1].lower()
-        if image_loss == 'ncc':
-            ncc_loss = vxm.losses.NCC().loss
-            def image_loss(I, J):
-                with ThreadPoolExecutor() as executor:
-                    I = [tf.convert_to_tensor(np.repeat([x], num_hyp, axis=0)) for x in I]
-                    J = tf.convert_to_tensor(J)
-                    futures = [
-                        executor.submit(ncc_loss, x, J)
-                        for x in I
-                    ]
-                    scores = np.array([f.result() for f in futures])
-                    return scores
-        elif image_loss == 'mse':
-            # loss parameters
-            image_sigma = 0.05  # a priori image noise std
-
-            scaling = 1.0 / (image_sigma ** 2) / np.prod(inshape)
-            image_loss = lambda I, J: scaling * cdist(I.reshape((num_hyp, -1)), J.reshape((num_hyp, -1)), metric='sqeuclidean')
-
-        int_downsize = vxm_model.outputs[0].shape[1] // vxm_model.outputs[1].shape[1]
-        grad_loss = vxm.losses.Grad('l2', loss_mult=int_downsize).loss
-
-    # Hypermorph currently does not support GPU!
-    # # tensorflow device handling
-    # device, nb_devices = vxm.tf.utils.setup_device(gpu)
-
-    # # multi-gpu support
-    # if nb_devices > 1:
-    #     vxm_model = tf.keras.utils.multi_gpu_model(vxm_model, gpus=nb_devices)
-
-    # retrieve images as input
-    base_gen = vxm_data_generator(image_pool,
-                                  keys=keys,
-                                  training=False,
-                                  store_params=store_params)
-    inputs = [ins for (ins, _) in base_gen]
-
-    del base_gen
-    gc.collect()
-
-    moving = np.concatenate([m for m, _ in inputs], axis=0)
-    fixed = np.concatenate([f for _, f in inputs], axis=0)
-
-    del inputs
-    gc.collect()
-
-    # compute metric scores for all consecutive frame pairs
-    # as a sparse matrix representing a graph, so we can find the
-    # shortest paths later
-    t1 = time.perf_counter()
-    # shape: (num_hyp, 1)
-    hyper_params = np.linspace(0, 1, num_hyp)[:, np.newaxis]
-    sg_data = []
-    sg_indices = []
-    sg_indptr = []
-    in_hyp = hyper_params[:, np.newaxis]
-    in_moving = np.repeat([moving[0]], num_hyp, axis=0)
-    in_fixed = np.repeat([fixed[0]], num_hyp, axis=0)
-    if metric.startswith('model'):
-        # shape: (num_hyp, W, H, 1)
-        I, I_flow = vxm_model.predict((in_moving, in_fixed, in_hyp))
-        I = I.squeeze()
-        I_flow = tf.convert_to_tensor(I_flow)
-        I_flow_loss = np.squeeze(grad_loss(None, I_flow))
-    else:
-        # shape: (num_hyp, W, H)
-        I = vxm_model.predict((in_moving, in_fixed, in_hyp))[0].squeeze()
-        I = I.reshape((num_hyp, -1))
-    for t in tqdm(range(moving.shape[0]-1)):
-        # model forward pass
-        in_moving = np.repeat([moving[t+1]], num_hyp, axis=0)
-        in_fixed = np.repeat([fixed[t+1]], num_hyp, axis=0)
-        if metric.startswith('model'):
-            # shape: (num_hyp, W, H, 1)
-            J, J_flow = vxm_model.predict((in_moving, in_fixed, in_hyp))
-            J = J.squeeze()
-            J_flow = tf.convert_to_tensor(J_flow)
-            J_flow_loss = np.squeeze(grad_loss(None, J_flow))
-        else:
-            # shape: (num_hyp, W, H)
-            J = vxm_model.predict((in_moving, in_fixed, in_hyp))[0].squeeze()
-            J = J.reshape((num_hyp, -1))
-            
-        if metric.startswith('model'):
-            # 0.5 * MSE(I, J) + 0.25 * flow_loss(I) + 0.25 * flow_loss(J)
-            #  or
-            # 0.5 * NCC(I, J) + 0.25 * flow_loss(I) + 0.25 * flow_loss(J)
-            scores = 0.5 * image_loss(I, J) + 0.25 * I_flow_loss[:, np.newaxis] + 0.25 * J_flow_loss[np.newaxis, :]
-        else:
-            scores = cdist(I, J, metric=metric)
-        # scores has as rows input nodes and as cols output nodes
-        sg_indices = np.r_[sg_indices,
-                           np.tile((t+1)*num_hyp + np.arange(num_hyp), num_hyp)]
-        sg_data = np.r_[sg_data,
-                        scores.flatten()]
-
-        I = J
-        if metric.startswith('model'):
-            I_flow_loss = J_flow_loss
-
-    sg_indptr = np.arange(0, sg_indices.size+1, num_hyp)
-    # last image's hyp nodes are sinks, so we add their rows as empty
-    sg_indptr = np.r_[sg_indptr, np.repeat(sg_indptr[-1], num_hyp)]
-
-    # cast as int type
-    sg_indptr = sg_indptr.astype('int32')
-    sg_indices = sg_indices.astype('int32')
-
-    # a Compressed Sparse Row matrix
-    N = moving.shape[0]*num_hyp
-    score_graph = csr_matrix((sg_data, sg_indices, sg_indptr), shape=(N, N))
-    t2 = time.perf_counter()
-    _LOGGER.info(f'Calcuated scores. Elapsed {t2-t1:.2f}s '
-                 f'| {moving.shape[0]/(t2-t1):.0f} frames/s '
-                 f'| {(t2-t1)/moving.shape[0]:.4f} s/frame')
-
-    t1 = time.perf_counter()
-    # dist_matrix shape: (num_hyp, N_nodes)
-    dist_matrix, predecessors = \
-        shortest_path(score_graph,
-                      directed=True,
-                      return_predecessors=True,
-                      indices=np.arange(num_hyp))
-    t2 = time.perf_counter()
-    _LOGGER.info(f'Calcuated shortest paths. Elapsed {t2-t1:.4f}s')
-    _LOGGER.info(f'Shortest path scores: \n{dist_matrix[:, -num_hyp:]}')
-
-    # build path of hyp using predecessors
-    optimal_hyp = []
-    opt_idx_source_sink = np.argmin(dist_matrix[:, -num_hyp:])
-    opt_idx_source = opt_idx_source_sink // num_hyp
-    # we are only interested in the source with optimal path.
-    # ``predecessors`` will now be just its row
-    predecessors = predecessors[opt_idx_source]
-    
-    optimal_hyp.append(hyper_params[opt_idx_source_sink % num_hyp])
-    opt_idx = predecessors[-num_hyp:][opt_idx_source_sink % num_hyp]
-    while opt_idx != -9999:
-        optimal_hyp.append(hyper_params[opt_idx % num_hyp])
-        opt_idx = predecessors[opt_idx]
-    # we have been adding optimal hyps from the last frame to the first,
-    # so we need to reverse the list
-    optimal_hyp = np.array(optimal_hyp)[::-1]
-    optimal_hyp = optimal_hyp.squeeze()
-    _LOGGER.info(f'optimal hyps: {optimal_hyp}')
-
-    # finally! register result
-    # shape: (N_frames, W, H)
-    optimal_hyp = optimal_hyp[:, np.newaxis]
-    moved = vxm_model.predict((moving, fixed, optimal_hyp))[0].squeeze()
-    del vxm_model
-
-    if undo_preprocessing_output:
-        # undo pre-processing transformations
-        i = 0
-        for params in store_params:
-            idx = slice(i, i+params['nb_frames'])
-            moved[idx] = vxm_undo_preprocessing(moved[idx], params)
-            i += params['nb_frames']
-    if return_optimal_hyp:
-        return moved, optimal_hyp
-    else:
-        return moved
 
 
 def _hypm_random_hyperparam(oversample_rate: float):
@@ -593,7 +350,7 @@ def vxm_data_generator(file_pool,
             for idx in gen_batches(nb_frames, batch_size):
                 if ref == 'previous':
                     idx = np.arange(nb_frames)[idx]
-                    idx = np.concatenate([idx, np.clip(idx-1, 0, None)])
+                    idx = np.concatenate([[max(idx[0]-1, 0)], idx])
                 x_data = tiff.imread(file_path, key=key[idx])
                 x_data, _ = vxm_preprocessing(
                     x_data, 
@@ -603,9 +360,8 @@ def vxm_data_generator(file_pool,
                 x_data = x_data[..., np.newaxis]
 
                 if ref == 'previous':
-                    slice_size = idx.size//2
-                    moving_images = x_data[:slice_size]
-                    fixed = x_data[slice_size:]
+                    moving_images = x_data[1:]
+                    fixed = x_data[:-1]
                 else:
                     moving_images = x_data
                     fixed = params['ref'][np.newaxis, ..., np.newaxis]
@@ -959,6 +715,7 @@ def make_video(video_path: str,
     """This function writes a video to file with all frames that the ``frame_generator`` yields.
 
     .. note::
+
         Taken and modified from: `here <https://github.com/NeLy-EPFL/utils_video/blob/2b18493085576b6432b3eaecd0d6d62845ea3abc/utils_video/main.py#L10/>`_
 
     Parameters
@@ -1182,7 +939,7 @@ def plot_frame_values_3d(frame: np.ndarray,
         plt.savefig(saveto)
 
 
-def plot_centers(image, radius=None, s=5, ax=None, title=r'Centers of mass'):
+def plot_centers(image, radius=None, s=5, marker='o', ax=None, title=r'Centers of mass'):
     """Plot centers of mass of ``image``."""
     if radius is None:
         radius = 0.1 * min(image.shape[1:])
@@ -1204,7 +961,7 @@ def plot_centers(image, radius=None, s=5, ax=None, title=r'Centers of mass'):
         circ = plt.Circle(m_centers, radius, color='tab:red', alpha=.25)
         ax.add_patch(circ)
 
-    ax.scatter(centers[:, 0], centers[:, 1], color='tab:blue', s=s, alpha=0.5)
+    ax.scatter(centers[:, 0], centers[:, 1], color='tab:blue', s=s, marker=marker, alpha=0.5)
     ax.plot(target[0], target[1], 'k*')
     
     (lx, hx), (ly, hy) = ax.get_xlim(), ax.get_ylim()

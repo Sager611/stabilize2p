@@ -22,14 +22,18 @@ from .utils import get_centers
 def EMD(video: np.ndarray, ref='previous', n_samples: int = 500, metric: str = 'euclidean') -> float:
     """Earth Moving Distance score (loosely inspired).
     
-    This metric is not standard and it's not recomended to use practically, but only
-    for its novelty.
+    This metric is not standard and it is probabilistic.
 
     This is a generalization for the 1D Wasserstein distance.
 
     ``n_samples`` samples are taken for each frame, considering the frame
     an n-dimensional distribution. Then, for each two consecutive frames,
-    their sampled points are run through :func:`scipy.optimize.linear_sum_assignment`.
+    their sampled points distances are run through :func:`scipy.optimize.linear_sum_assignment`.
+    
+    .. note::
+
+        Check the following paper for theoretical and experimental results on this approach:
+        Bharath K Sriperumbudur et al. “On the empirical estimation of integral probabilitymetrics”. In: *Electronic Journal of Statistics* 6 (2012), pp. 1550–1599.
 
     Parameters
     ----------
