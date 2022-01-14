@@ -21,7 +21,7 @@ bin/*
 !bin/*.sh 
 !bin/*.json
 !bin/raw2tiff
-!bin/pystackreg
+!bin/title.svg
 
 # we do not save the models (can be big)
 models

@@ -1,3 +1,9 @@
+.. raw:: html
+
+    <p align="center">
+      <img src="/bin/title.svg" />
+    </p>
+
 stabilize2p
 ===========
 
@@ -44,9 +50,7 @@ To register an image or set of images you can easily use the script provided und
 
 Registers ``path/to/file.tif`` using OFCO and saves the results in ``path/to/output.tif``.
 
-.. warning::
-
-    All input and output images are assumed to be in TIFF format!
+**Warning: All input and output images are assumed to be in TIFF format! You can use** ``bin/raw2tiff`` **to convert raw 2-photon images to TIFF files**
 
 VoxelMorph and HyperMorph needs you to specify where the trained network is saved:
 
@@ -95,9 +99,6 @@ To run these scripts you need to `install stabilize2p first <#installation>`_.
 Scripts:
 
 -  raw2tiff: shell script to transform raw 2-photon video to a TIFF file
--  pystackreg: shell script to apply pystackreg method to a tiff file to stabilize the video
--  register.py: Voxelmorph's
-   `register.py <https://github.com/voxelmorph/voxelmorph/blob/dev/scripts/tf/register.py>`_.
-   Used to load a model and register an image.
+-  register.py: general registration script.
 -  train-voxelmorph.py: train a Voxelmorph model using a pool of files. Check ``train-voxelmorph.py --help`` for more information.
 -  train-hypermorph.py: train a Hypermorph model using a pool of files. Check ``train-hypermorph.py --help`` for more information.
