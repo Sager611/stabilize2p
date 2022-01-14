@@ -55,14 +55,18 @@
 <div class="viewcode-block" id="EMD"><a class="viewcode-back" href="../../metrics.html#stabilize2p.metrics.EMD">[docs]</a><span class="k">def</span> <span class="nf">EMD</span><span class="p">(</span><span class="n">video</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="s1">&#39;previous&#39;</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">500</span><span class="p">,</span> <span class="n">metric</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;euclidean&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;Earth Moving Distance score (loosely inspired).</span>
 <span class="sd">    </span>
-<span class="sd">    This metric is not standard and it&#39;s not recomended to use practically, but only</span>
-<span class="sd">    for its novelty.</span>
+<span class="sd">    This metric is not standard and it is probabilistic.</span>
 
 <span class="sd">    This is a generalization for the 1D Wasserstein distance.</span>
 
 <span class="sd">    ``n_samples`` samples are taken for each frame, considering the frame</span>
 <span class="sd">    an n-dimensional distribution. Then, for each two consecutive frames,</span>
-<span class="sd">    their sampled points are run through :func:`scipy.optimize.linear_sum_assignment`.</span>
+<span class="sd">    their sampled points distances are run through :func:`scipy.optimize.linear_sum_assignment`.</span>
+<span class="sd">    </span>
+<span class="sd">    .. note::</span>
+
+<span class="sd">        Check the following paper for theoretical and experimental results on this approach:</span>
+<span class="sd">        Bharath K Sriperumbudur et al. “On the empirical estimation of integral probabilitymetrics”. In: *Electronic Journal of Statistics* 6 (2012), pp. 1550–1599.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -370,7 +374,7 @@
       &copy;2021, Adrian Sager La Ganga.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.3.1</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.2.0</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>

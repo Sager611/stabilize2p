@@ -108,7 +108,7 @@ def hypermorph_dataset(base_generator,
         .with_options(dataset_options)
 
 
-def vxm_preprocessing(x, affine_transform=True, params=None):
+def vxm_preprocessing(x, affine_transform=True, params=None, ecc_steps=3):
     # "remove' background. Threshold calculation should be ~1600 frames/s
     th = threshold.triangle(x) if params is None else params['bg_thresh'] 
     np.clip(x, th, None, out=x)
@@ -131,10 +131,13 @@ def vxm_preprocessing(x, affine_transform=True, params=None):
         ref = x.mean(axis=0) if params is None else params['ref']
         # scipy returns in (y, x) format, so we have to swap them
         target = np.array(ndi.center_of_mass(ref))[::-1]
-        # best and fastest affine registration is to remove outliers with CoM
+        # fast and accurate affine registration is to remove outliers with CoM
         # and then apply few ECC steps
         x = register.com_transform(x, target=target)
-        x = register.ECC_transform(x, ref=ref, nb_iters=3)
+        x = register.ECC_transform(x, ref=ref, nb_iters=ecc_steps)
+
+        # numerical errors can lead the images to move out of the value range
+        np.clip(x, 0.0, 1.0, out=x)
 
         t2 = time.perf_counter()
         _LOGGER.debug(f'Applied affine transform to {x.shape[0]} frames at a rate of {x.shape[0]/(t2-t1):.0f} frames/s')

@@ -62,246 +62,11 @@
 <span class="kn">from</span> <span class="nn">pystackreg</span> <span class="kn">import</span> <span class="n">StackReg</span>
 <span class="kn">from</span> <span class="nn">tensorflow.keras</span> <span class="kn">import</span> <span class="n">backend</span> <span class="k">as</span> <span class="n">K</span>
 <span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">ndimage</span> <span class="k">as</span> <span class="n">ndi</span>
-<span class="kn">from</span> <span class="nn">scipy.sparse</span> <span class="kn">import</span> <span class="n">csr_matrix</span>
-<span class="kn">from</span> <span class="nn">scipy.spatial.distance</span> <span class="kn">import</span> <span class="n">cdist</span>
-<span class="kn">from</span> <span class="nn">scipy.sparse.csgraph</span> <span class="kn">import</span> <span class="n">shortest_path</span>
 
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">register</span>
 <span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">threshold</span>
 
 <span class="n">_LOGGER</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;stabilize2p&#39;</span><span class="p">)</span>
-
-
-<div class="viewcode-block" id="hypermorph_optimal_register"><a class="viewcode-back" href="../../utils.html#stabilize2p.utils.hypermorph_optimal_register">[docs]</a><span class="k">def</span> <span class="nf">hypermorph_optimal_register</span><span class="p">(</span><span class="n">image_pool</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span>
-                                <span class="n">hypermorph_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-                                <span class="n">keys</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-                                <span class="n">num_hyp</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20</span><span class="p">,</span>
-                                <span class="n">gpu</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;0&#39;</span><span class="p">,</span>
-                                <span class="n">metric</span><span class="o">=</span><span class="s1">&#39;model-ncc&#39;</span><span class="p">,</span>
-                                <span class="n">return_optimal_hyp</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Register using a Hypermorph model by optimizing its hyperparameter per-frame using some heuristic metric.</span>
-
-<span class="sd">    This function calculates :math:`L_{sim}(I_t, I_{t-1})` for each pair of frames :math:`I_t, I_{t-1}` each</span>
-<span class="sd">    generated with ``num_hyp`` [0, 1] values for the hyperparameter, and with some metric :math:`L_{sim}`.</span>
-<span class="sd">    Then, the optimal hyperparameters per-frame are calculated by the shortest weighted path from :math:`I_0`</span>
-<span class="sd">    to :math:`I_{nb\_frames}`. Finally, with these hyperparameters, the images from ``image_pool`` are</span>
-<span class="sd">    registered and returned as an array.</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    image_pool : str or list</span>
-<span class="sd">        path or list of paths to the TIFF files to register</span>
-<span class="sd">    hypermorph_path : str</span>
-<span class="sd">        path to the saved weights of the Hypermorph model in h5 format</span>
-<span class="sd">    keys: list, optional</span>
-<span class="sd">        same argument as for :func:`stabilize2p.utils.vxm_data_generator`, indicates which frames to use for</span>
-<span class="sd">        each file in the pool. Defaults to use all frames</span>
-<span class="sd">    num_hyp: int, optional</span>
-<span class="sd">        number of hyperparameters between [0, 1] to use. For example, if ``num_hyp=3``, then the considered</span>
-<span class="sd">        hyperparameters will be ``[0. , 0.5, 1. ]``.</span>
-<span class="sd">        Default is 20</span>
-<span class="sd">    gpu: str, optional</span>
-<span class="sd">        gpu numbers to use. Default is &#39;0&#39;</span>
-<span class="sd">    metric: str or function, optional</span>
-<span class="sd">        which similarity metric to use between consecutive frames.</span>
-<span class="sd">        Default is &#39;model-ncc&#39;, which uses NCC as the similarity loss, and l2 of the flow gradient as an</span>
-<span class="sd">        additional smoothness loss. In particular, for each image pair :math:`I_t, I_{t-1}` the metric is:</span>
-<span class="sd">        </span>
-<span class="sd">        .. math::</span>
-<span class="sd">        </span>
-<span class="sd">            0.5 * L_{sim}(I_t, I_{t-1}) + 0.25 * L_{grad}(\phi_t) + 0.25 * L_{grad}(\phi_{t+1})</span>
-<span class="sd">            </span>
-<span class="sd">        Where :math:`\phi_t` is the gradient of the predicted flow for :math:`I_t`.</span>
-<span class="sd">        </span>
-<span class="sd">        You can instead specify &#39;model-mse&#39;, which will use MSE as the similarity loss.</span>
-<span class="sd">        </span>
-<span class="sd">        Further details for other metrics are found in `scipy.spatial.distance.cdist &lt;https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.distance.cdist.html&gt;`_</span>
-<span class="sd">    return_optimal_hyp: bool, optional</span>
-<span class="sd">        whether to also return the array of found optimal hyperparameters for each frame.</span>
-<span class="sd">        Default is False</span>
-<span class="sd">    Returns</span>
-<span class="sd">    -------</span>
-<span class="sd">    array or tuple of arrays</span>
-<span class="sd">        registered images. If ``return_optimal_hyp`` is True, also returns array of optimal hyperparameters</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">image_pool</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="n">image_pool</span> <span class="o">=</span> <span class="p">[</span><span class="n">image_pool</span><span class="p">]</span>
-
-    <span class="c1"># get frame shape</span>
-    <span class="n">inshape</span> <span class="o">=</span> <span class="n">tiff</span><span class="o">.</span><span class="n">imread</span><span class="p">(</span><span class="n">image_pool</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">key</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span>
-    <span class="n">nfeats</span> <span class="o">=</span> <span class="mi">1</span>
-
-    <span class="c1"># load model</span>
-    <span class="n">K</span><span class="o">.</span><span class="n">clear_session</span><span class="p">()</span>
-    <span class="n">vxm_model</span> <span class="o">=</span> <span class="n">vxm</span><span class="o">.</span><span class="n">networks</span><span class="o">.</span><span class="n">HyperVxmDense</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">hypermorph_path</span><span class="p">)</span>
-    <span class="n">_LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;model input shape:  &#39;</span> <span class="o">+</span> <span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">vxm_model</span><span class="o">.</span><span class="n">inputs</span><span class="p">]))</span>
-    <span class="n">_LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s1">&#39;model output shape: &#39;</span> <span class="o">+</span> <span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">vxm_model</span><span class="o">.</span><span class="n">outputs</span><span class="p">]))</span>
-
-    <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;model&#39;</span><span class="p">):</span>
-        <span class="c1"># prepare loss functions</span>
-        <span class="n">image_loss</span> <span class="o">=</span> <span class="n">metric</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;-&#39;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">image_loss</span> <span class="o">==</span> <span class="s1">&#39;ncc&#39;</span><span class="p">:</span>
-            <span class="n">ncc_loss</span> <span class="o">=</span> <span class="n">vxm</span><span class="o">.</span><span class="n">losses</span><span class="o">.</span><span class="n">NCC</span><span class="p">()</span><span class="o">.</span><span class="n">loss</span>
-            <span class="k">def</span> <span class="nf">image_loss</span><span class="p">(</span><span class="n">I</span><span class="p">,</span> <span class="n">J</span><span class="p">):</span>
-                <span class="k">with</span> <span class="n">ThreadPoolExecutor</span><span class="p">()</span> <span class="k">as</span> <span class="n">executor</span><span class="p">:</span>
-                    <span class="n">I</span> <span class="o">=</span> <span class="p">[</span><span class="n">tf</span><span class="o">.</span><span class="n">convert_to_tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">([</span><span class="n">x</span><span class="p">],</span> <span class="n">num_hyp</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">I</span><span class="p">]</span>
-                    <span class="n">J</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">convert_to_tensor</span><span class="p">(</span><span class="n">J</span><span class="p">)</span>
-                    <span class="n">futures</span> <span class="o">=</span> <span class="p">[</span>
-                        <span class="n">executor</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="n">ncc_loss</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">J</span><span class="p">)</span>
-                        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">I</span>
-                    <span class="p">]</span>
-                    <span class="n">scores</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">f</span><span class="o">.</span><span class="n">result</span><span class="p">()</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">futures</span><span class="p">])</span>
-                    <span class="k">return</span> <span class="n">scores</span>
-        <span class="k">elif</span> <span class="n">image_loss</span> <span class="o">==</span> <span class="s1">&#39;mse&#39;</span><span class="p">:</span>
-            <span class="c1"># loss parameters</span>
-            <span class="n">image_sigma</span> <span class="o">=</span> <span class="mf">0.05</span>  <span class="c1"># a priori image noise std</span>
-
-            <span class="n">scaling</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="n">image_sigma</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">inshape</span><span class="p">)</span>
-            <span class="n">image_loss</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">I</span><span class="p">,</span> <span class="n">J</span><span class="p">:</span> <span class="n">scaling</span> <span class="o">*</span> <span class="n">cdist</span><span class="p">(</span><span class="n">I</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">num_hyp</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)),</span> <span class="n">J</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">num_hyp</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)),</span> <span class="n">metric</span><span class="o">=</span><span class="s1">&#39;sqeuclidean&#39;</span><span class="p">)</span>
-
-        <span class="n">int_downsize</span> <span class="o">=</span> <span class="n">vxm_model</span><span class="o">.</span><span class="n">outputs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">//</span> <span class="n">vxm_model</span><span class="o">.</span><span class="n">outputs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-        <span class="n">grad_loss</span> <span class="o">=</span> <span class="n">vxm</span><span class="o">.</span><span class="n">losses</span><span class="o">.</span><span class="n">Grad</span><span class="p">(</span><span class="s1">&#39;l2&#39;</span><span class="p">,</span> <span class="n">loss_mult</span><span class="o">=</span><span class="n">int_downsize</span><span class="p">)</span><span class="o">.</span><span class="n">loss</span>
-
-    <span class="c1"># tensorflow device handling</span>
-    <span class="n">device</span><span class="p">,</span> <span class="n">nb_devices</span> <span class="o">=</span> <span class="n">vxm</span><span class="o">.</span><span class="n">tf</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">setup_device</span><span class="p">(</span><span class="n">gpu</span><span class="p">)</span>
-
-    <span class="c1"># multi-gpu support</span>
-    <span class="k">if</span> <span class="n">nb_devices</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="n">vxm_model</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">utils</span><span class="o">.</span><span class="n">multi_gpu_model</span><span class="p">(</span><span class="n">vxm_model</span><span class="p">,</span> <span class="n">gpus</span><span class="o">=</span><span class="n">nb_devices</span><span class="p">)</span>
-
-    <span class="c1"># retrieve images as input</span>
-    <span class="n">store_params</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="n">base_gen</span> <span class="o">=</span> <span class="n">vxm_data_generator</span><span class="p">(</span><span class="n">image_pool</span><span class="p">,</span>
-                                  <span class="n">keys</span><span class="o">=</span><span class="n">keys</span><span class="p">,</span>
-                                  <span class="n">training</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-                                  <span class="n">store_params</span><span class="o">=</span><span class="n">store_params</span><span class="p">)</span>
-    <span class="n">inputs</span> <span class="o">=</span> <span class="p">[</span><span class="n">ins</span> <span class="k">for</span> <span class="p">(</span><span class="n">ins</span><span class="p">,</span> <span class="n">_</span><span class="p">)</span> <span class="ow">in</span> <span class="n">base_gen</span><span class="p">]</span>
-
-    <span class="k">del</span> <span class="n">base_gen</span>
-    <span class="n">gc</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
-
-    <span class="n">moving</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">m</span> <span class="k">for</span> <span class="n">m</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">inputs</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-    <span class="n">fixed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">f</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">inputs</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-
-    <span class="k">del</span> <span class="n">inputs</span>
-    <span class="n">gc</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
-
-    <span class="c1"># compute metric scores for all consecutive frame pairs</span>
-    <span class="c1"># as a sparse matrix representing a graph, so we can find the</span>
-    <span class="c1"># shortest paths later</span>
-    <span class="n">t1</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
-    <span class="c1"># shape: (num_hyp, 1)</span>
-    <span class="n">hyper_params</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">num_hyp</span><span class="p">)[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
-    <span class="n">sg_data</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="n">sg_indices</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="n">sg_indptr</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="n">in_hyp</span> <span class="o">=</span> <span class="n">hyper_params</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
-    <span class="n">in_moving</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">([</span><span class="n">moving</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="n">num_hyp</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-    <span class="n">in_fixed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">([</span><span class="n">fixed</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="n">num_hyp</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;model&#39;</span><span class="p">):</span>
-        <span class="c1"># shape: (num_hyp, W, H, 1)</span>
-        <span class="n">I</span><span class="p">,</span> <span class="n">I_flow</span> <span class="o">=</span> <span class="n">vxm_model</span><span class="o">.</span><span class="n">predict</span><span class="p">((</span><span class="n">in_moving</span><span class="p">,</span> <span class="n">in_fixed</span><span class="p">,</span> <span class="n">in_hyp</span><span class="p">))</span>
-        <span class="n">I</span> <span class="o">=</span> <span class="n">I</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span>
-        <span class="n">I_flow</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">convert_to_tensor</span><span class="p">(</span><span class="n">I_flow</span><span class="p">)</span>
-        <span class="n">I_flow_loss</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="n">grad_loss</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">I_flow</span><span class="p">))</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="c1"># shape: (num_hyp, W, H)</span>
-        <span class="n">I</span> <span class="o">=</span> <span class="n">vxm_model</span><span class="o">.</span><span class="n">predict</span><span class="p">((</span><span class="n">in_moving</span><span class="p">,</span> <span class="n">in_fixed</span><span class="p">,</span> <span class="n">in_hyp</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span>
-        <span class="n">I</span> <span class="o">=</span> <span class="n">I</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">num_hyp</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
-    <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">moving</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-</span><span class="mi">1</span><span class="p">)):</span>
-        <span class="c1"># model forward pass</span>
-        <span class="n">in_moving</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">([</span><span class="n">moving</span><span class="p">[</span><span class="n">t</span><span class="o">+</span><span class="mi">1</span><span class="p">]],</span> <span class="n">num_hyp</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-        <span class="n">in_fixed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">([</span><span class="n">fixed</span><span class="p">[</span><span class="n">t</span><span class="o">+</span><span class="mi">1</span><span class="p">]],</span> <span class="n">num_hyp</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;model&#39;</span><span class="p">):</span>
-            <span class="c1"># shape: (num_hyp, W, H, 1)</span>
-            <span class="n">J</span><span class="p">,</span> <span class="n">J_flow</span> <span class="o">=</span> <span class="n">vxm_model</span><span class="o">.</span><span class="n">predict</span><span class="p">((</span><span class="n">in_moving</span><span class="p">,</span> <span class="n">in_fixed</span><span class="p">,</span> <span class="n">in_hyp</span><span class="p">))</span>
-            <span class="n">J</span> <span class="o">=</span> <span class="n">J</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span>
-            <span class="n">J_flow</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">convert_to_tensor</span><span class="p">(</span><span class="n">J_flow</span><span class="p">)</span>
-            <span class="n">J_flow_loss</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="n">grad_loss</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">J_flow</span><span class="p">))</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="c1"># shape: (num_hyp, W, H)</span>
-            <span class="n">J</span> <span class="o">=</span> <span class="n">vxm_model</span><span class="o">.</span><span class="n">predict</span><span class="p">((</span><span class="n">in_moving</span><span class="p">,</span> <span class="n">in_fixed</span><span class="p">,</span> <span class="n">in_hyp</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span>
-            <span class="n">J</span> <span class="o">=</span> <span class="n">J</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="n">num_hyp</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
-            
-        <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;model&#39;</span><span class="p">):</span>
-            <span class="c1"># 0.5 * MSE(I, J) + 0.25 * flow_loss(I) + 0.25 * flow_loss(J)</span>
-            <span class="c1">#  or</span>
-            <span class="c1"># 0.5 * NCC(I, J) + 0.25 * flow_loss(I) + 0.25 * flow_loss(J)</span>
-            <span class="n">scores</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">image_loss</span><span class="p">(</span><span class="n">I</span><span class="p">,</span> <span class="n">J</span><span class="p">)</span> <span class="o">+</span> <span class="mf">0.25</span> <span class="o">*</span> <span class="n">I_flow_loss</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span> <span class="o">+</span> <span class="mf">0.25</span> <span class="o">*</span> <span class="n">J_flow_loss</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="p">:]</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">scores</span> <span class="o">=</span> <span class="n">cdist</span><span class="p">(</span><span class="n">I</span><span class="p">,</span> <span class="n">J</span><span class="p">,</span> <span class="n">metric</span><span class="o">=</span><span class="n">metric</span><span class="p">)</span>
-        <span class="c1"># scores has as rows input nodes and as cols output nodes</span>
-        <span class="n">sg_indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span><span class="n">sg_indices</span><span class="p">,</span>
-                           <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">((</span><span class="n">t</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">*</span><span class="n">num_hyp</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_hyp</span><span class="p">),</span> <span class="n">num_hyp</span><span class="p">)]</span>
-        <span class="n">sg_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span><span class="n">sg_data</span><span class="p">,</span>
-                        <span class="n">scores</span><span class="o">.</span><span class="n">flatten</span><span class="p">()]</span>
-
-        <span class="n">I</span> <span class="o">=</span> <span class="n">J</span>
-        <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;model&#39;</span><span class="p">):</span>
-            <span class="n">I_flow_loss</span> <span class="o">=</span> <span class="n">J_flow_loss</span>
-
-    <span class="n">sg_indptr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">sg_indices</span><span class="o">.</span><span class="n">size</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="n">num_hyp</span><span class="p">)</span>
-    <span class="c1"># last image&#39;s hyp nodes are sinks, so we add their rows as empty</span>
-    <span class="n">sg_indptr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">r_</span><span class="p">[</span><span class="n">sg_indptr</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">sg_indptr</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">num_hyp</span><span class="p">)]</span>
-
-    <span class="c1"># cast as int type</span>
-    <span class="n">sg_indptr</span> <span class="o">=</span> <span class="n">sg_indptr</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s1">&#39;int32&#39;</span><span class="p">)</span>
-    <span class="n">sg_indices</span> <span class="o">=</span> <span class="n">sg_indices</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s1">&#39;int32&#39;</span><span class="p">)</span>
-
-    <span class="c1"># a Compressed Sparse Row matrix</span>
-    <span class="n">N</span> <span class="o">=</span> <span class="n">moving</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">*</span><span class="n">num_hyp</span>
-    <span class="n">score_graph</span> <span class="o">=</span> <span class="n">csr_matrix</span><span class="p">((</span><span class="n">sg_data</span><span class="p">,</span> <span class="n">sg_indices</span><span class="p">,</span> <span class="n">sg_indptr</span><span class="p">),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">N</span><span class="p">))</span>
-    <span class="n">t2</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
-    <span class="n">_LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Calcuated scores. Elapsed </span><span class="si">{</span><span class="n">t2</span><span class="o">-</span><span class="n">t1</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1">s &#39;</span>
-                 <span class="sa">f</span><span class="s1">&#39;| </span><span class="si">{</span><span class="n">moving</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">/</span><span class="p">(</span><span class="n">t2</span><span class="o">-</span><span class="n">t1</span><span class="p">)</span><span class="si">:</span><span class="s1">.0f</span><span class="si">}</span><span class="s1"> frames/s &#39;</span>
-                 <span class="sa">f</span><span class="s1">&#39;| </span><span class="si">{</span><span class="p">(</span><span class="n">t2</span><span class="o">-</span><span class="n">t1</span><span class="p">)</span><span class="o">/</span><span class="n">moving</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s1">.4f</span><span class="si">}</span><span class="s1"> s/frame&#39;</span><span class="p">)</span>
-
-    <span class="n">t1</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
-    <span class="c1"># dist_matrix shape: (num_hyp, N_nodes)</span>
-    <span class="n">dist_matrix</span><span class="p">,</span> <span class="n">predecessors</span> <span class="o">=</span> \
-        <span class="n">shortest_path</span><span class="p">(</span><span class="n">score_graph</span><span class="p">,</span>
-                      <span class="n">directed</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                      <span class="n">return_predecessors</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-                      <span class="n">indices</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_hyp</span><span class="p">))</span>
-    <span class="n">t2</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
-    <span class="n">_LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Calcuated shortest paths. Elapsed </span><span class="si">{</span><span class="n">t2</span><span class="o">-</span><span class="n">t1</span><span class="si">:</span><span class="s1">.4f</span><span class="si">}</span><span class="s1">s&#39;</span><span class="p">)</span>
-    <span class="n">_LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Shortest path scores: </span><span class="se">\n</span><span class="si">{</span><span class="n">dist_matrix</span><span class="p">[:,</span> <span class="o">-</span><span class="n">num_hyp</span><span class="p">:]</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
-
-    <span class="c1"># build path of hyp using predecessors</span>
-    <span class="n">optimal_hyp</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="n">opt_idx_source_sink</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">dist_matrix</span><span class="p">[:,</span> <span class="o">-</span><span class="n">num_hyp</span><span class="p">:])</span>
-    <span class="n">opt_idx_source</span> <span class="o">=</span> <span class="n">opt_idx_source_sink</span> <span class="o">//</span> <span class="n">num_hyp</span>
-    <span class="c1"># we are only interested in the source with optimal path.</span>
-    <span class="c1"># ``predecessors`` will now be just its row</span>
-    <span class="n">predecessors</span> <span class="o">=</span> <span class="n">predecessors</span><span class="p">[</span><span class="n">opt_idx_source</span><span class="p">]</span>
-    
-    <span class="n">optimal_hyp</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">hyper_params</span><span class="p">[</span><span class="n">opt_idx_source_sink</span> <span class="o">%</span> <span class="n">num_hyp</span><span class="p">])</span>
-    <span class="n">opt_idx</span> <span class="o">=</span> <span class="n">predecessors</span><span class="p">[</span><span class="o">-</span><span class="n">num_hyp</span><span class="p">:][</span><span class="n">opt_idx_source_sink</span> <span class="o">%</span> <span class="n">num_hyp</span><span class="p">]</span>
-    <span class="k">while</span> <span class="n">opt_idx</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">9999</span><span class="p">:</span>
-        <span class="n">optimal_hyp</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">hyper_params</span><span class="p">[</span><span class="n">opt_idx</span> <span class="o">%</span> <span class="n">num_hyp</span><span class="p">])</span>
-        <span class="n">opt_idx</span> <span class="o">=</span> <span class="n">predecessors</span><span class="p">[</span><span class="n">opt_idx</span><span class="p">]</span>
-    <span class="c1"># we have been adding optimal hyps from the last frame to the first,</span>
-    <span class="c1"># so we need to reverse the list</span>
-    <span class="n">optimal_hyp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">optimal_hyp</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-    <span class="n">optimal_hyp</span> <span class="o">=</span> <span class="n">optimal_hyp</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span>
-    <span class="n">_LOGGER</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;optimal hyps: </span><span class="si">{</span><span class="n">optimal_hyp</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
-
-    <span class="c1"># finally! register result</span>
-    <span class="c1"># shape: (N_frames, W, H)</span>
-    <span class="n">optimal_hyp</span> <span class="o">=</span> <span class="n">optimal_hyp</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
-    <span class="n">moved</span> <span class="o">=</span> <span class="n">vxm_model</span><span class="o">.</span><span class="n">predict</span><span class="p">((</span><span class="n">moving</span><span class="p">,</span> <span class="n">fixed</span><span class="p">,</span> <span class="n">optimal_hyp</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">squeeze</span><span class="p">()</span>
-    <span class="k">del</span> <span class="n">vxm_model</span>
-    
-    <span class="c1"># undo pre-processing transformations</span>
-    <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
-    <span class="k">for</span> <span class="n">params</span> <span class="ow">in</span> <span class="n">store_params</span><span class="p">:</span>
-        <span class="n">idx</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">i</span><span class="o">+</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;nb_frames&#39;</span><span class="p">])</span>
-        <span class="n">moved</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">vxm_undo_preprocessing</span><span class="p">(</span><span class="n">moved</span><span class="p">[</span><span class="n">idx</span><span class="p">],</span> <span class="n">params</span><span class="p">)</span>
-        <span class="n">i</span> <span class="o">+=</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;nb_frames&#39;</span><span class="p">]</span>
-    <span class="k">if</span> <span class="n">return_optimal_hyp</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">moved</span><span class="p">,</span> <span class="n">optimal_hyp</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">moved</span></div>
 
 
 <span class="k">def</span> <span class="nf">_hypm_random_hyperparam</span><span class="p">(</span><span class="n">oversample_rate</span><span class="p">:</span> <span class="nb">float</span><span class="p">):</span>
@@ -413,14 +178,14 @@
     <span class="k">return</span> <span class="n">x</span><span class="p">,</span> <span class="nb">dict</span><span class="p">(</span><span class="n">low</span><span class="o">=</span><span class="n">low</span><span class="p">,</span> <span class="n">hig</span><span class="o">=</span><span class="n">hig</span><span class="p">,</span> <span class="n">bg_thresh</span><span class="o">=</span><span class="n">th</span><span class="p">,</span> <span class="n">ref</span><span class="o">=</span><span class="n">ref</span><span class="p">,</span> <span class="n">nb_frames</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span></div>
 
 
-<div class="viewcode-block" id="vxm_undo_preprocessing"><a class="viewcode-back" href="../../utils.html#stabilize2p.utils.vxm_undo_preprocessing">[docs]</a><span class="k">def</span> <span class="nf">vxm_undo_preprocessing</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<div class="viewcode-block" id="vxm_undo_preprocessing"><a class="viewcode-back" href="../../utils.html#stabilize2p.utils.vxm_undo_preprocessing">[docs]</a><span class="k">def</span> <span class="nf">vxm_undo_preprocessing</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;Undo transformations of :func:`stabilize2p.utils.vxm_preprocessing`.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    x : array</span>
 <span class="sd">        output array from :func:`stabilize2p.utils.vxm_preprocessing`</span>
-<span class="sd">    params : dict or list of dict</span>
+<span class="sd">    params : dict</span>
 <span class="sd">        output calculated parameters dict from :func:`stabilize2p.utils.vxm_preprocessing`</span>
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -618,7 +383,7 @@
             <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">gen_batches</span><span class="p">(</span><span class="n">nb_frames</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">):</span>
                 <span class="k">if</span> <span class="n">ref</span> <span class="o">==</span> <span class="s1">&#39;previous&#39;</span><span class="p">:</span>
                     <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">nb_frames</span><span class="p">)[</span><span class="n">idx</span><span class="p">]</span>
-                    <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">idx</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">idx</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="kc">None</span><span class="p">)])</span>
+                    <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([[</span><span class="nb">max</span><span class="p">(</span><span class="n">idx</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">)],</span> <span class="n">idx</span><span class="p">])</span>
                 <span class="n">x_data</span> <span class="o">=</span> <span class="n">tiff</span><span class="o">.</span><span class="n">imread</span><span class="p">(</span><span class="n">file_path</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">key</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
                 <span class="n">x_data</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">vxm_preprocessing</span><span class="p">(</span>
                     <span class="n">x_data</span><span class="p">,</span> 
@@ -628,9 +393,8 @@
                 <span class="n">x_data</span> <span class="o">=</span> <span class="n">x_data</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
 
                 <span class="k">if</span> <span class="n">ref</span> <span class="o">==</span> <span class="s1">&#39;previous&#39;</span><span class="p">:</span>
-                    <span class="n">slice_size</span> <span class="o">=</span> <span class="n">idx</span><span class="o">.</span><span class="n">size</span><span class="o">//</span><span class="mi">2</span>
-                    <span class="n">moving_images</span> <span class="o">=</span> <span class="n">x_data</span><span class="p">[:</span><span class="n">slice_size</span><span class="p">]</span>
-                    <span class="n">fixed</span> <span class="o">=</span> <span class="n">x_data</span><span class="p">[</span><span class="n">slice_size</span><span class="p">:]</span>
+                    <span class="n">moving_images</span> <span class="o">=</span> <span class="n">x_data</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span>
+                    <span class="n">fixed</span> <span class="o">=</span> <span class="n">x_data</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
                 <span class="k">else</span><span class="p">:</span>
                     <span class="n">moving_images</span> <span class="o">=</span> <span class="n">x_data</span>
                     <span class="n">fixed</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s1">&#39;ref&#39;</span><span class="p">][</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="o">...</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span>
@@ -984,6 +748,7 @@
     <span class="sd">&quot;&quot;&quot;This function writes a video to file with all frames that the ``frame_generator`` yields.</span>
 
 <span class="sd">    .. note::</span>
+
 <span class="sd">        Taken and modified from: `here &lt;https://github.com/NeLy-EPFL/utils_video/blob/2b18493085576b6432b3eaecd0d6d62845ea3abc/utils_video/main.py#L10/&gt;`_</span>
 
 <span class="sd">    Parameters</span>
@@ -1207,7 +972,7 @@
         <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">saveto</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="plot_centers"><a class="viewcode-back" href="../../utils.html#stabilize2p.utils.plot_centers">[docs]</a><span class="k">def</span> <span class="nf">plot_centers</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="sa">r</span><span class="s1">&#39;Centers of mass&#39;</span><span class="p">):</span>
+<div class="viewcode-block" id="plot_centers"><a class="viewcode-back" href="../../utils.html#stabilize2p.utils.plot_centers">[docs]</a><span class="k">def</span> <span class="nf">plot_centers</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">marker</span><span class="o">=</span><span class="s1">&#39;o&#39;</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="sa">r</span><span class="s1">&#39;Centers of mass&#39;</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Plot centers of mass of ``image``.&quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">radius</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">radius</span> <span class="o">=</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="nb">min</span><span class="p">(</span><span class="n">image</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
@@ -1229,7 +994,7 @@
         <span class="n">circ</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">Circle</span><span class="p">(</span><span class="n">m_centers</span><span class="p">,</span> <span class="n">radius</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;tab:red&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">.25</span><span class="p">)</span>
         <span class="n">ax</span><span class="o">.</span><span class="n">add_patch</span><span class="p">(</span><span class="n">circ</span><span class="p">)</span>
 
-    <span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">centers</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">centers</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;tab:blue&#39;</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">centers</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">centers</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;tab:blue&#39;</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="n">s</span><span class="p">,</span> <span class="n">marker</span><span class="o">=</span><span class="n">marker</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
     <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">target</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">target</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s1">&#39;k*&#39;</span><span class="p">)</span>
     
     <span class="p">(</span><span class="n">lx</span><span class="p">,</span> <span class="n">hx</span><span class="p">),</span> <span class="p">(</span><span class="n">ly</span><span class="p">,</span> <span class="n">hy</span><span class="p">)</span> <span class="o">=</span> <span class="n">ax</span><span class="o">.</span><span class="n">get_xlim</span><span class="p">(),</span> <span class="n">ax</span><span class="o">.</span><span class="n">get_ylim</span><span class="p">()</span>
@@ -1358,7 +1123,7 @@
       &copy;2021, Adrian Sager La Ganga.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.3.1</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.2.0</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
     </div>

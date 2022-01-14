@@ -25,6 +25,49 @@ Run:
     make install
     pip install -e .
 
+Image registration
+------------------
+
+The following methods are included for image registration:
+
+- `PyStackReg <https://github.com/glichtner/pystackreg>`_: is an affine transformation algorithm.
+- `OFCO <https://github.com/NeLy-EPFL/ofco/tree/master/ofco>`_: is a variational approach that learns a complex deformable transformation.
+- `VoxelMorph <https://github.com/voxelmorph/voxelmorph>`_: is a learning-based deep neural network (DNN) based on an UNet.
+- `HyperMorph <https://github.com/voxelmorph/voxelmorph>`_: is a hypernetwork that learns optimal VoxelMorph models according to some hyper-parameter.
+- `ECC maximization <https://ieeexplore.ieee.org/abstract/document/4515873/>`_: Enhanced Correlation Coefficient (ECC) maximization is an affine algorithm for image registration implemented in `OpenCV <https://opencv.org/>`_.
+
+To register an image or set of images you can easily use the script provided under ``bin/register.py``. For example:
+
+.. code:: shell
+
+    python bin/register.py --method ofco -i path/to/file.tif -o path/to/output.tif
+
+Registers ``path/to/file.tif`` using OFCO and saves the results in ``path/to/output.tif``.
+
+.. warning::
+
+    All input and output images are assumed to be in TIFF format!
+
+VoxelMorph and HyperMorph needs you to specify where the trained network is saved:
+
+.. code:: shell
+
+    python bin/register.py --method voxelmorph --net models/vxm_drosophila_2d_1000.h5 -i path/to/file.tif -o path/to/output.tif
+
+If you want to use the same predicted deformation field to transform other images, simply add more files to the ``-i`` and ``-o`` arguments. For example:
+
+.. code:: shell
+
+    python bin/register.py --method pystackreg -i reference.tif file1.tif file2.tif  -o reference-out.tif out1.tif out2.tif
+
+You can find more information with ``python bin/register.py --help``. For other scripts, check the `additional scripts section <#additional-scripts>`_.
+
+Notebooks
+---------
+
+You can find a set of JupyterLab notebooks in `notebooks/ </notebooks>`_.
+They require the 2-photon imaging dataset to be saved in a ``data/`` directory.
+
 Please create in the project root folder a ``data/`` link pointing to the directory
 with the dataset. For example:
 
@@ -47,15 +90,14 @@ Additional scripts
 The ``bin/`` folder contains scripts you may find useful to deal with
 the dataset.
 
-To run these scripts you need to `install stabilize2p
-first <#installation>`__.
+To run these scripts you need to `install stabilize2p first <#installation>`_.
 
 Scripts:
 
 -  raw2tiff: shell script to transform raw 2-photon video to a TIFF file
 -  pystackreg: shell script to apply pystackreg method to a tiff file to stabilize the video
 -  register.py: Voxelmorph's
-   `register.py <https://github.com/voxelmorph/voxelmorph/blob/dev/scripts/tf/register.py>`__.
+   `register.py <https://github.com/voxelmorph/voxelmorph/blob/dev/scripts/tf/register.py>`_.
    Used to load a model and register an image.
 -  train-voxelmorph.py: train a Voxelmorph model using a pool of files. Check ``train-voxelmorph.py --help`` for more information.
 -  train-hypermorph.py: train a Hypermorph model using a pool of files. Check ``train-hypermorph.py --help`` for more information.

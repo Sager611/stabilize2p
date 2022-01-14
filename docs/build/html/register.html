@@ -13,6 +13,7 @@
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
     <script src="_static/doctools.js"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="threshold module" href="threshold.html" />
@@ -38,7 +39,7 @@
 <p>Methods used for image registration.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="stabilize2p.register.ECC_transform">
-<span class="sig-prename descclassname"><span class="pre">stabilize2p.register.</span></span><span class="sig-name descname"><span class="pre">ECC_transform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">numpy.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nb_iters</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">numpy.ndarray</span></span></span><a class="reference internal" href="_modules/stabilize2p/register.html#ECC_transform"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.register.ECC_transform" title="Permalink to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">stabilize2p.register.</span></span><span class="sig-name descname"><span class="pre">ECC_transform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">numpy.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nb_iters</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eps</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-06</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">numpy.ndarray</span></span></span><a class="reference internal" href="_modules/stabilize2p/register.html#ECC_transform"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.register.ECC_transform" title="Permalink to this definition">¶</a></dt>
 <dd><p>Affine alignment using <code class="xref py py-func docutils literal notranslate"><span class="pre">cv2.findTransformECC()</span></code>.</p>
 <p>&gt;4 times faster than pystackreg’s translation transform.</p>
 <dl class="field-list simple">
@@ -54,7 +55,7 @@ Defaults to first frame in video</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="stabilize2p.register.com_transform">
-<span class="sig-prename descclassname"><span class="pre">stabilize2p.register.</span></span><span class="sig-name descname"><span class="pre">com_transform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">numpy.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inplace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">downsample</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">numpy.ndarray</span></span></span><a class="reference internal" href="_modules/stabilize2p/register.html#com_transform"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.register.com_transform" title="Permalink to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">stabilize2p.register.</span></span><span class="sig-name descname"><span class="pre">com_transform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">numpy.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inplace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">downsample</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">numpy.ndarray</span></span></span><a class="reference internal" href="_modules/stabilize2p/register.html#com_transform"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.register.com_transform" title="Permalink to this definition">¶</a></dt>
 <dd><p>Fast translation alignment of frames based on the Center of Mass.</p>
 <p>This method is not very precise.
 &gt;40 times faster than pystackreg’s translation transform.</p>
@@ -84,8 +85,83 @@ with the translation transform applied</p>
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="stabilize2p.register.hypermorph_optimal_register">
+<span class="sig-prename descclassname"><span class="pre">stabilize2p.register.</span></span><span class="sig-name descname"><span class="pre">hypermorph_optimal_register</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image_pool</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hypermorph_path</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keys</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">list</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_hyp</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">int</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metric</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'model-ncc'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_flow</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">bool</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_optimal_hyp</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">bool</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">undo_preprocessing_output</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">bool</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">store_params</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">list</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strategy</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_generator_kw</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">dict</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">{}</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/stabilize2p/register.html#hypermorph_optimal_register"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.register.hypermorph_optimal_register" title="Permalink to this definition">¶</a></dt>
+<dd><p>Register using a Hypermorph model by optimizing its hyperparameter per-frame using some heuristic metric.</p>
+<p>This function calculates <span class="math notranslate nohighlight">\(L_{sim}(I_t, I_{t-1})\)</span> for each pair of frames <span class="math notranslate nohighlight">\(I_t, I_{t-1}\)</span> each
+generated with <code class="docutils literal notranslate"><span class="pre">num_hyp</span></code> [0, 1] values for the hyperparameter, and with some metric <span class="math notranslate nohighlight">\(L_{sim}\)</span>.
+Then, the optimal hyperparameters per-frame are calculated by the shortest weighted path from <span class="math notranslate nohighlight">\(I_0\)</span>
+to <span class="math notranslate nohighlight">\(I_{nb\_frames}\)</span>. Finally, with these hyperparameters, the images from <code class="docutils literal notranslate"><span class="pre">image_pool</span></code> are
+registered and returned as an array.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>image_pool</strong> (<em>str</em><em> or </em><em>list</em>) – path or list of paths to the TIFF files to register</p></li>
+<li><p><strong>hypermorph_path</strong> (<em>str</em>) – path to the saved weights of the Hypermorph model in h5 format</p></li>
+<li><p><strong>keys</strong> (<em>list</em><em>, </em><em>optional</em>) – same argument as for <a class="reference internal" href="utils.html#stabilize2p.utils.vxm_data_generator" title="stabilize2p.utils.vxm_data_generator"><code class="xref py py-func docutils literal notranslate"><span class="pre">stabilize2p.utils.vxm_data_generator()</span></code></a>, indicates which frames to use for
+each file in the pool. Defaults to use all frames</p></li>
+<li><p><strong>num_hyp</strong> (<em>int</em><em>, </em><em>optional</em>) – number of hyperparameters between [0, 1] to use. For example, if <code class="docutils literal notranslate"><span class="pre">num_hyp=3</span></code>, then the considered
+hyperparameters will be <code class="docutils literal notranslate"><span class="pre">[0.</span> <span class="pre">,</span> <span class="pre">0.5,</span> <span class="pre">1.</span> <span class="pre">]</span></code>.
+Default is 20</p></li>
+<li><p><strong>metric</strong> (<em>str</em><em> or </em><em>function</em><em>, </em><em>optional</em>) – <p>which similarity metric to use between consecutive frames.
+Default is ‘model-ncc’, which uses NCC as the similarity loss, and l2 of the flow gradient as an
+additional smoothness loss. In particular, for each image pair <span class="math notranslate nohighlight">\(I_t, I_{t-1}\)</span> the metric is:</p>
+<div class="math notranslate nohighlight">
+\[0.5 * L_{sim}(I_t, I_{t-1}) + 0.25 * L_{grad}(\phi_t) + 0.25 * L_{grad}(\phi_{t+1})\]</div>
+<p>Where <span class="math notranslate nohighlight">\(\phi_t\)</span> is the gradient of the predicted flow for <span class="math notranslate nohighlight">\(I_t\)</span>.</p>
+<p>You can instead specify ‘model-mse’, which will use MSE as the similarity loss.</p>
+<p>Further details for other metrics are found in <a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.distance.cdist.html">scipy.spatial.distance.cdist</a></p>
+</p></li>
+<li><p><strong>return_flow</strong> (<em>bool</em><em>, </em><em>optional</em>) – whether to also return the predicted flow for each frame.
+Default is False</p></li>
+<li><p><strong>return_optimal_hyp</strong> (<em>bool</em><em>, </em><em>optional</em>) – whether to also return the array of found optimal hyperparameters for each frame.
+Default is False</p></li>
+<li><p><strong>undo_preprocessing_output</strong> (<em>bool</em><em>, </em><em>optional</em>) – whether to undo the pre-processing steps on the Hypermorph model’s output before returning it.
+Default is True</p></li>
+<li><p><strong>store_params</strong> (<em>list</em><em>, </em><em>optional</em>) – if provided, calculated pre-processing parameters for each file in the pool will be stored in this list</p></li>
+<li><p><strong>strategy</strong> (<em>tensorflow strategy</em><em>, </em><em>optional</em>) – which Tensorflow strategy to use to run inference on the model. To get some strategy, you can
+use <a class="reference internal" href="utils.html#stabilize2p.utils.get_strategy" title="stabilize2p.utils.get_strategy"><code class="xref py py-func docutils literal notranslate"><span class="pre">stabilize2p.utils.get_strategy()</span></code></a>.
+Default is <code class="xref py py-class docutils literal notranslate"><span class="pre">tf.distribute.MirroredStrategy</span></code></p></li>
+<li><p><strong>data_generator_kw</strong> (<em>dict</em><em>, </em><em>optional</em>) – additional keyword parameters to pass to <a class="reference internal" href="utils.html#stabilize2p.utils.vxm_data_generator" title="stabilize2p.utils.vxm_data_generator"><code class="xref py py-func docutils literal notranslate"><span class="pre">stabilize2p.utils.vxm_data_generator()</span></code></a></p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><p>registered images.
+If <code class="docutils literal notranslate"><span class="pre">undo_preprocessing_output</span></code> is False, the outputted images will come from the model’s prediction as-is,
+without undoing the applied pre-processing steps.</p>
+<p>Depending if <code class="docutils literal notranslate"><span class="pre">return_flow</span></code> and/or <code class="docutils literal notranslate"><span class="pre">return_optimal_hyp</span></code> are set, the output changes:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p>~</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">return_optimal_hyp</span></code> False</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">return_optimal_hyp</span></code> True</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">return_flow</span></code> False</p></td>
+<td><p>registered</p></td>
+<td><p>(registered, hyps)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">return_flow</span></code> True</p></td>
+<td><p>(registered, flow)</p></td>
+<td><p>(registered, flow, hyps)</p></td>
+</tr>
+</tbody>
+</table>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>array or tuple of arrays</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="stabilize2p.register.pysreg_transform">
-<span class="sig-prename descclassname"><span class="pre">stabilize2p.register.</span></span><span class="sig-name descname"><span class="pre">pysreg_transform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">numpy.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'first'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">numpy.ndarray</span></span></span><a class="reference internal" href="_modules/stabilize2p/register.html#pysreg_transform"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.register.pysreg_transform" title="Permalink to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">stabilize2p.register.</span></span><span class="sig-name descname"><span class="pre">pysreg_transform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">numpy.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">6</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'first'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">numpy.ndarray</span></span></span><a class="reference internal" href="_modules/stabilize2p/register.html#pysreg_transform"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.register.pysreg_transform" title="Permalink to this definition">¶</a></dt>
 <dd><p>Apply <code class="xref py py-class docutils literal notranslate"><span class="pre">pystackreg.StackReg</span></code> to <code class="docutils literal notranslate"><span class="pre">video</span></code>.</p>
 </dd></dl>
 
@@ -156,7 +232,7 @@ with the translation transform applied</p>
       &copy;2021, Adrian Sager La Ganga.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.3.1</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 4.2.0</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |
