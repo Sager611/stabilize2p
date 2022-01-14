@@ -556,7 +556,8 @@ def vxm_register(video_path: str, model_weights_path: str, batch_size: int = 5, 
     .. note::
 
         This is intended for pre-trained models and not models trained with the ``train-voxelmorph.py`` script, as 
-        the required pre-processing steps are not performed.
+        the required preprocessing steps are not performed. To use models trained with ``train-voxelmorph.py``, consider
+        using the ``register.py`` script.
     
     .. warning:: 
 
