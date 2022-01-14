@@ -1,9 +1,3 @@
-.. raw:: html
-
-    <p align="center">
-      <img src="/bin/title.svg" />
-    </p>
-
 stabilize2p
 ===========
 

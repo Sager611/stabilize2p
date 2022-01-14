@@ -707,14 +707,55 @@ def resize_shape(shape, original_shape, allow_upsampling=False):
     return new_shape
 
 
+def frame_gen(videos,
+              text=None,
+              cmap=None,
+              text_pos=(10, 30),
+              text_font=cv2.FONT_HERSHEY_SIMPLEX,
+              text_font_scale=1,
+              text_color=(255, 255, 255),
+              text_thickness=2):
+    if type(videos) is np.ndarray:
+        videos = [videos]
+    elif type(videos) is not list and type(videos) is not tuple:
+        raise TypeError(f'Video must be array, tuple or list. It is: {type(videos)}')
+    low = [v[0].min() for v in videos]
+    hig = [v[0].max() for v in videos]
+    # for each frame
+    for i in range(videos[0].shape[0]):
+        out = []
+        for vi, v in enumerate(videos):
+            img = v[i]
+            img = (img - low[vi]) / (hig[vi] - low[vi]) * 255
+            img[img < 0] = 0
+            img[img > 255] = 255
+            img = img.astype(np.uint8)
+            
+            # text
+            if text:
+                img = cv2.applyColorMap(img, cmap)
+                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+                img = cv2.putText(img, text[vi][i], text_pos, text_font, 
+                                  text_font_scale, text_color, text_thickness, cv2.LINE_AA)
+
+            out.append(img)
+        if len(out) == 1:
+            yield out[0]
+        else:
+            yield np.concatenate(out, axis=1)
+
+
 def make_video(video_path: str,
-               frame_generator: Iterable,
+               frame_generator: Iterable = None,
                fps: int = 9,
                cmap=cv2.COLORMAP_VIRIDIS,
                ext: str = 'mp4',
                output_shape: tuple = (-1, 2880),
                n_frames: int = -1,
-               output_format: str = 'mov'):
+               output_format: str = 'mov',
+               text=None,
+               frame_gen_kw: dict = {}):
     """This function writes a video to file with all frames that the ``frame_generator`` yields.
 
     .. note::
@@ -736,6 +777,14 @@ def make_video(video_path: str,
     -------
     None
     """
+    if type(video_path) is not str:
+        frame_generator = video_path
+        video_path = 'out'
+    if type(frame_generator) is np.ndarray:
+        frame_generator = frame_gen(frame_generator, text=text, cmap=cmap, **frame_gen_kw)
+        if text is not None:
+            cmap = None
+
     if float(fps).is_integer() and int(fps) != 1 and (int(fps) & (int(fps) - 1)) == 0:
         _LOGGER.warn(
             f"Frame rate {fps} is a power of 2. This can result in faulty video files."

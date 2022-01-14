@@ -13,7 +13,9 @@ src
 
 # only allow notebooks in the notebooks/ folder
 notebooks/**
-!notebooks/*.ipynb
+!notebooks/emd-metric.ipynb
+!notebooks/hypermorph.ipynb
+!notebooks/report.ipynb
 
 # we allow scripts and their configs, but not their outputs
 bin/*
