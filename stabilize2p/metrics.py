@@ -127,7 +127,8 @@ def NCC(video: np.ndarray, ref='previous', return_all=False) -> Union[float, np.
             raise ValueError(f'Reference "{ref}" is not recognized. Recognized references: previous, first')
         del frames
 
-    res = np.concatenate(res)
+    if len(res) > 1:
+        res = np.concatenate(res)
 
     if return_all:
         return res

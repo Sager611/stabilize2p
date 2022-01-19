@@ -81,6 +81,7 @@ if args.method == 'pystackreg':
     # register
     sr = StackReg(StackReg.AFFINE)
     sr.register_stack(image, reference='first')
+    image = sr.transform_stack(image)
 
     t2 = time.perf_counter()
     _LOGGER.info('Calculated PyStackReg transform. %s' % logstring(t1, t2, nb_frames))
