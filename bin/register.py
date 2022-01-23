@@ -26,6 +26,8 @@ parser.add_argument('-o', '--output', nargs='+', required=True,
 # optional specific parameters
 parser.add_argument('--gpu', default='',
                     help='visible GPU ID numbers. Goes into "CUDA_VISIBLE_DEVICES" env var (default: use all GPUs)')
+parser.add_argument('--ref', default='first',
+                    help='what image to use as reference. Used for pystackreg, voxelmorph and hypermorph. Can be: previous, first (default: first)')
 
 args = parser.parse_args()
 args.method = args.method.lower()
@@ -80,7 +82,7 @@ if args.method == 'pystackreg':
 
     # register
     sr = StackReg(StackReg.AFFINE)
-    sr.register_stack(image, reference='first')
+    sr.register_stack(image, reference=args.ref)
     image = sr.transform_stack(image)
 
     t2 = time.perf_counter()
@@ -154,7 +156,7 @@ elif args.method == 'voxelmorph':
         args.net,
         return_flow=calc_warp,
         data_generator_kw=dict(batch_size=128,
-                               ref='previous')
+                               ref=args.ref)
     )
     if calc_warp:
         image, flow = image
@@ -199,7 +201,7 @@ elif args.method == 'hypermorph':
         args.net,
         return_flow=calc_warp,
         data_generator_kw=dict(batch_size=128,
-                               ref='previous')
+                               ref=args.ref)
     )
     if calc_warp:
         image, flow = image

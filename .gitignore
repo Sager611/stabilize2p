@@ -41,3 +41,6 @@ logs/**
 
 # conda environment is no longer needed
 environment.yml
+
+# docs related
+!docs/.nojekyll

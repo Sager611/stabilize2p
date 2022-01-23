@@ -19,8 +19,12 @@ from sklearn.utils import gen_batches
 from .utils import get_centers
 
 
-def EMD(video: np.ndarray, ref='previous', n_samples: int = 500, metric: str = 'euclidean') -> float:
-    """Earth Moving Distance score (loosely inspired).
+def EMD(video: np.ndarray,
+        ref='previous',
+        n_samples: int = 500,
+        metric: str = 'euclidean',
+        return_all=False) -> Union[float, np.ndarray]:
+    """Earth Moving Distance score.
     
     This metric is not standard and it is probabilistic.
 
@@ -33,6 +37,7 @@ def EMD(video: np.ndarray, ref='previous', n_samples: int = 500, metric: str = '
     .. note::
 
         Check the following paper for theoretical and experimental results on this approach:
+
         Bharath K Sriperumbudur et al. “On the empirical estimation of integral probabilitymetrics”. In: *Electronic Journal of Statistics* 6 (2012), pp. 1550–1599.
 
     Parameters
@@ -49,6 +54,16 @@ def EMD(video: np.ndarray, ref='previous', n_samples: int = 500, metric: str = '
     metric : string
         distance metric to use for optimal transport.
         Defaults to 'euclidean'
+    return_all : bool, optional
+        whether to return all EMD values for all frames or average the result
+        across frames.
+
+        Defaults to averaging across frames
+
+    Returns
+    -------
+    float or array
+        average NCC score across frames, or all NCC scores per-frame if ``return_all`` is True
     """
     scores = []
     
@@ -97,13 +112,35 @@ def EMD(video: np.ndarray, ref='previous', n_samples: int = 500, metric: str = '
             raise ValueError(f'Reference "{ref}" is not recognized. Recognized references: previous, first')
         scores = [f.result() for f in futures]
 
-    return np.mean(scores)
+    if return_all:
+        return scores
+    else:
+        return np.mean(scores)
 
 
 def NCC(video: np.ndarray, ref='previous', return_all=False) -> Union[float, np.ndarray]:
     """Normalized Cross-Correlation score.
 
     This method works on 2D and 3D video inputs.
+
+    Parameters
+    ----------
+    video : array
+        Contains the video information
+    ref : string or array, optional
+        Reference frame/image to use as approx for round-truth.
+        Either: 'previous', 'first' or an array
+        Default is 'previous'
+    return_all : bool, optional
+        whether to return all NCC values for all frames or average the result
+        across frames.
+
+        Defaults to averaging across frames
+
+    Returns
+    -------
+    float or array
+        average NCC score across frames, or all NCC scores per-frame if ``return_all`` is True
     """
     vxm_ncc = vxm.losses.NCC()
 
@@ -152,9 +189,14 @@ def MSE(video: np.ndarray, ref='previous', return_all=False) -> Union[float, np.
         Default is 'previous'
     return_all : bool, optional
         whether to return all MSE values for all frames or average the result
-        accross frames.
+        across frames.
 
-        Defaults to averaging accross frames
+        Defaults to averaging across frames
+
+    Returns
+    -------
+    float or array
+        average MSE score across frames, or all MSE scores per-frame if ``return_all`` is True
     """
     nb_frame_pixels = np.prod(video.shape[1:])
     
@@ -185,12 +227,40 @@ def MSE(video: np.ndarray, ref='previous', return_all=False) -> Union[float, np.
 def COM(video: np.ndarray,
         frame_shape: Optional[tuple] = None,
         threshold: Optional[int] = None,
-        return_all=False) -> np.ndarray:
+        return_all=False) -> Union[float, np.ndarray]:
     """Return fraction of frames considered 'failed' due to remoteness to the Center of Mass.
 
     An important assumption this score makes is that the mean over the centers of mass of
     the input ``video`` is suposed to represent a proper center were all axons are
     visible.
+
+    Parameters
+    ----------
+    video : array
+        contains the video information
+    frame_shape : tuple, optional
+        (width, height) of frames in pixels. Used to calculate the ``threshold``, if it is not
+        provided, using the formula:
+
+        .. math::
+            
+            threshold = 10\% \cdot \min\{width, height\}
+
+        Default is the width and height of the frames in ``video``
+    threshold : float, optional
+        radius used to consider a frame as *failed*.
+        Default is :math:`threshold = 10\% \cdot \min\{width, height\}`, where (width, height) are defined by
+        ``frame_shape``
+    return_all : bool, optional
+        whether to return all MSE values for all frames or average the result
+        across frames.
+
+        Defaults to averaging across frames
+    
+    Returns
+    -------
+    float or array
+        average COM score across frames, or all COM scores per-frame if ``return_all`` is True
     """
     if frame_shape is None:
         frame_shape = (video.shape[1], video.shape[2])
@@ -206,81 +276,3 @@ def COM(video: np.ndarray,
         return failures
     else:
         return np.sum(failures) / centers.shape[0]
-
-
-# def get_correlation_scores(video: np.ndarray) -> np.ndarray:
-#     """For each frame, return a score from 0 to 1 on how correlated it is to the mean frame."""
-#     mean_frame = video.mean(axis=0)
-#     # auto-correlation.
-#     # value achieved if all frames were the same
-#     ref_corr = (mean_frame * mean_frame).sum()
-
-#     def loop(i):
-#         # cross-correlation
-#         corr = (video[i] * mean_frame).sum()
-#         # avoid numerical errors
-#         large = max(ref_corr, corr)
-#         local_ref_corr = ref_corr / large
-#         corr /= large
-#         # if corr == ref_corr we will get 1.0
-#         # if corr and ref_corr are very different, we will get 0.0
-#         score = 1.0 - np.abs(local_ref_corr - corr) / (local_ref_corr + corr)
-#         assert abs(score) <= 1.0, f'{score=} | {local_ref_corr=} | {corr=}'
-#         return score
-    
-#     with ThreadPoolExecutor() as executor:
-#         futures = [
-#             executor.submit(loop, i)
-#             for i in range(len(video))
-#         ]
-#         scores = [f.result() for f in futures]
-#     scores = np.array(scores)
-#     return scores
-
-
-# def get_correlation_scores_prev(video: np.ndarray) -> np.ndarray:
-#     """For each frame, return a score from 0 to 1 on how correlated it is to the next frame."""
-
-#     def loop(i):
-#         # auto-correlation.
-#         # value achieved if all frames were the same
-#         ref_corr = (video[i] * video[i]).sum()
-#         # cross-correlation
-#         corr = (video[i] * video[i+1]).sum()
-#         # avoid numerical errors
-#         large = max(ref_corr, corr)
-#         local_ref_corr = ref_corr / large
-#         corr /= large
-#         # if corr == ref_corr we will get 1.0
-#         # if corr and ref_corr are very different, we will get 0.0
-#         score = 1.0 - np.abs(local_ref_corr - corr) / (local_ref_corr + corr)
-#         assert abs(score) <= 1.0, f'{score=} | {local_ref_corr=} | {corr=}'
-#         return score
-    
-#     with ThreadPoolExecutor() as executor:
-#         futures = [
-#             executor.submit(loop, i)
-#             for i in range(len(video)-1)
-#         ]
-#         scores = [f.result() for f in futures]
-#     scores = np.array(scores)
-#     return scores
-
-
-def cont_dice_scores(video: np.ndarray) -> float:
-    normals = np.sum(video ** 2, axis=(1, 2))
-    N = normals.max()
-
-    def loop(i):
-        return np.sum(video[i] * video[i+1]) / N
-
-    # use parallelism
-    res = []
-    with ThreadPoolExecutor() as executor:
-        futures = [
-            executor.submit(loop, i)
-            for i in range(len(video)-1)
-        ]
-        res = [f.result() for f in futures]
-    res = np.array(res)
-    return res

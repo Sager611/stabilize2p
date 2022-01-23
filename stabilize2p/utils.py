@@ -716,10 +716,15 @@ def frame_gen(videos,
               text_font_scale=1,
               text_color=(255, 255, 255),
               text_thickness=2):
+    """Frame generator meant to be used with :func:`stabilize2p.utils.make_video`."""
     if type(videos) is np.ndarray:
         videos = [videos]
     elif type(videos) is not list and type(videos) is not tuple:
         raise TypeError(f'Video must be array, tuple or list. It is: {type(videos)}')
+
+    if type(text) is str:
+        text = [text] * len(videos)
+
     low = [v[0].min() for v in videos]
     hig = [v[0].max() for v in videos]
     # for each frame
@@ -737,8 +742,12 @@ def frame_gen(videos,
                 img = cv2.applyColorMap(img, cmap)
                 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-                img = cv2.putText(img, text[vi][i], text_pos, text_font, 
-                                  text_font_scale, text_color, text_thickness, cv2.LINE_AA)
+                if type(text[vi]) is str:
+                    img = cv2.putText(img, text[vi], text_pos, text_font, 
+                                      text_font_scale, text_color, text_thickness, cv2.LINE_AA)
+                else:
+                    img = cv2.putText(img, text[vi][i], text_pos, text_font, 
+                                      text_font_scale, text_color, text_thickness, cv2.LINE_AA)
 
             out.append(img)
         if len(out) == 1:
@@ -765,14 +774,24 @@ def make_video(video_path: str,
 
     Parameters
     ----------
-    video_path : string
-        name/path to the output file.
-    frame_generator : 
-        generator yielding individual frames.
-    fps : 
+    video_path : string or array
+        name/path to the output file. Optionally, this argument can be ``frame_generator`` and the output video will be
+        called 'out.mov'
+    frame_generator : generator, array or list of arrays
+        generator yielding individual frames, an individual array video, or a list of array videos. In the latter case,
+        the videos will be horizontally concatenated
+    text : str or list of str, optional
+        text to attach to the frames. Can be a single string, list of strings for each provided video, or list of list
+        of strings providing a string for each frame of each video.
+        Sent as an argument to :func:`stabilize2p.utils.frame_gen`.
+        Default is None
+    fps : int, optional
         frame rate in frames per second.
-    output_format : 
+    output_format : str, optional
         format of the output video. Defauts to `"mov"`.
+    frame_gen_kw : dict, optional
+        extra arguments for :func:`stabilize2p.utils.frame_gen`, if the ``frame_generator`` argument is an array or list
+        of arrays
 
     Returns
     -------
@@ -781,7 +800,7 @@ def make_video(video_path: str,
     if type(video_path) is not str:
         frame_generator = video_path
         video_path = 'out'
-    if type(frame_generator) is np.ndarray:
+    if type(frame_generator) is np.ndarray or type(frame_generator) is list:
         frame_generator = frame_gen(frame_generator, text=text, cmap=cmap, **frame_gen_kw)
         if text is not None:
             cmap = None

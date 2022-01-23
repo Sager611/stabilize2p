@@ -9,10 +9,14 @@
     <title>metrics module &#8212; stabilize2p  documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
+    <link rel="stylesheet" href="_static/css/functions.css" type="text/css" />
+    <link rel="stylesheet" href="_static/css/methods.css" type="text/css" />
+    <link rel="stylesheet" href="_static/css/classes.css" type="text/css" />
     <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
     <script src="_static/doctools.js"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="utils module" href="utils.html" />
@@ -38,17 +42,43 @@
 <p>Evaluation metrics module.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="stabilize2p.metrics.COM">
-<span class="sig-prename descclassname"><span class="pre">stabilize2p.metrics.</span></span><span class="sig-name descname"><span class="pre">COM</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">numpy.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frame_shape</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_all</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">numpy.ndarray</span></span></span><a class="reference internal" href="_modules/stabilize2p/metrics.html#COM"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.metrics.COM" title="Permalink to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">stabilize2p.metrics.</span></span><span class="sig-name descname"><span class="pre">COM</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">numpy.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">frame_shape</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threshold</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">Optional</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_all</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Union</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span> </span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/stabilize2p/metrics.html#COM"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.metrics.COM" title="Permalink to this definition">¶</a></dt>
 <dd><p>Return fraction of frames considered ‘failed’ due to remoteness to the Center of Mass.</p>
 <p>An important assumption this score makes is that the mean over the centers of mass of
 the input <code class="docutils literal notranslate"><span class="pre">video</span></code> is suposed to represent a proper center were all axons are
 visible.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>video</strong> (<em>array</em>) – contains the video information</p></li>
+<li><p><strong>frame_shape</strong> (<em>tuple</em><em>, </em><em>optional</em>) – <p>(width, height) of frames in pixels. Used to calculate the <code class="docutils literal notranslate"><span class="pre">threshold</span></code>, if it is not
+provided, using the formula:</p>
+<div class="math notranslate nohighlight">
+\[threshold = 10\% \cdot \min\{width, height\}\]</div>
+<p>Default is the width and height of the frames in <code class="docutils literal notranslate"><span class="pre">video</span></code></p>
+</p></li>
+<li><p><strong>threshold</strong> (<em>float</em><em>, </em><em>optional</em>) – radius used to consider a frame as <em>failed</em>.
+Default is <span class="math notranslate nohighlight">\(threshold = 10\% \cdot \min\{width, height\}\)</span>, where (width, height) are defined by
+<code class="docutils literal notranslate"><span class="pre">frame_shape</span></code></p></li>
+<li><p><strong>return_all</strong> (<em>bool</em><em>, </em><em>optional</em>) – <p>whether to return all MSE values for all frames or average the result
+accross frames.</p>
+<p>Defaults to averaging accross frames</p>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>average COM score accross frames, or all COM scores per-frame if <code class="docutils literal notranslate"><span class="pre">return_all</span></code> is True</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>float or array</p>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="stabilize2p.metrics.EMD">
 <span class="sig-prename descclassname"><span class="pre">stabilize2p.metrics.</span></span><span class="sig-name descname"><span class="pre">EMD</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">numpy.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'previous'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_samples</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">int</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metric</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">str</span></span> <span class="o"><span class="pre">=</span></span> <span class="default_value"><span class="pre">'euclidean'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="_modules/stabilize2p/metrics.html#EMD"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.metrics.EMD" title="Permalink to this definition">¶</a></dt>
-<dd><p>Earth Moving Distance score (loosely inspired).</p>
+<dd><p>Earth Moving Distance score.</p>
 <p>This metric is not standard and it is probabilistic.</p>
 <p>This is a generalization for the 1D Wasserstein distance.</p>
 <p><code class="docutils literal notranslate"><span class="pre">n_samples</span></code> samples are taken for each frame, considering the frame
@@ -56,8 +86,8 @@ an n-dimensional distribution. Then, for each two consecutive frames,
 their sampled points distances are run through <code class="xref py py-func docutils literal notranslate"><span class="pre">scipy.optimize.linear_sum_assignment()</span></code>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Check the following paper for theoretical and experimental results on this approach:
-Bharath K Sriperumbudur et al. “On the empirical estimation of integral probabilitymetrics”. In: <em>Electronic Journal of Statistics</em> 6 (2012), pp. 1550–1599.</p>
+<p>Check the following paper for theoretical and experimental results on this approach:</p>
+<p>Bharath K Sriperumbudur et al. “On the empirical estimation of integral probabilitymetrics”. In: <em>Electronic Journal of Statistics</em> 6 (2012), pp. 1550–1599.</p>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -71,6 +101,12 @@ Defaults to 100.</p></li>
 <li><p><strong>metric</strong> (<em>string</em>) – distance metric to use for optimal transport.
 Defaults to ‘euclidean’</p></li>
 </ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>EMD score</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>float</p>
 </dd>
 </dl>
 </dd></dl>
@@ -93,6 +129,12 @@ accross frames.</p>
 </p></li>
 </ul>
 </dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>average MSE score accross frames, or all MSE scores per-frame if <code class="docutils literal notranslate"><span class="pre">return_all</span></code> is True</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>float or array</p>
+</dd>
 </dl>
 </dd></dl>
 
@@ -101,12 +143,27 @@ accross frames.</p>
 <span class="sig-prename descclassname"><span class="pre">stabilize2p.metrics.</span></span><span class="sig-name descname"><span class="pre">NCC</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">numpy.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'previous'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_all</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Union</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span> </span><span class="pre">numpy.ndarray</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/stabilize2p/metrics.html#NCC"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.metrics.NCC" title="Permalink to this definition">¶</a></dt>
 <dd><p>Normalized Cross-Correlation score.</p>
 <p>This method works on 2D and 3D video inputs.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>video</strong> (<em>array</em>) – Contains the video information</p></li>
+<li><p><strong>ref</strong> (<em>string</em><em> or </em><em>array</em><em>, </em><em>optional</em>) – Reference frame/image to use as approx for round-truth.
+Either: ‘previous’, ‘first’ or an array
+Default is ‘previous’</p></li>
+<li><p><strong>return_all</strong> (<em>bool</em><em>, </em><em>optional</em>) – <p>whether to return all NCC values for all frames or average the result
+accross frames.</p>
+<p>Defaults to averaging accross frames</p>
+</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>average NCC score accross frames, or all NCC scores per-frame if <code class="docutils literal notranslate"><span class="pre">return_all</span></code> is True</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>float or array</p>
+</dd>
+</dl>
 </dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="stabilize2p.metrics.cont_dice_scores">
-<span class="sig-prename descclassname"><span class="pre">stabilize2p.metrics.</span></span><span class="sig-name descname"><span class="pre">cont_dice_scores</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">video</span></span><span class="p"><span class="pre">:</span></span> <span class="n"><span class="pre">numpy.ndarray</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="_modules/stabilize2p/metrics.html#cont_dice_scores"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stabilize2p.metrics.cont_dice_scores" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
 
 </section>
 

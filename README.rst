@@ -3,6 +3,11 @@ stabilize2p
 
 Different approaches to stabilize 2-photon imaging video.
 
+Documentation
+-------------
+
+You can find documentation for stabilize2p in `GitHub pages <https://sager611.github.io/stabilize2p>`_.
+
 Requirements
 ------------
 

@@ -9,6 +9,9 @@
     <title>Welcome to stabilize2p’s documentation! &#8212; stabilize2p  documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
+    <link rel="stylesheet" href="_static/css/functions.css" type="text/css" />
+    <link rel="stylesheet" href="_static/css/methods.css" type="text/css" />
+    <link rel="stylesheet" href="_static/css/classes.css" type="text/css" />
     <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
     <script src="_static/jquery.js"></script>
     <script src="_static/underscore.js"></script>
@@ -50,6 +53,10 @@
 <section id="stabilize2p">
 <h1>stabilize2p<a class="headerlink" href="#stabilize2p" title="Permalink to this headline">¶</a></h1>
 <p>Different approaches to stabilize 2-photon imaging video.</p>
+<section id="documentation">
+<h2>Documentation<a class="headerlink" href="#documentation" title="Permalink to this headline">¶</a></h2>
+<p>You can find documentation for stabilize2p in <a class="reference external" href="https://sager611.github.io/stabilize2p">GitHub pages</a>.</p>
+</section>
 <section id="requirements">
 <h2>Requirements<a class="headerlink" href="#requirements" title="Permalink to this headline">¶</a></h2>
 <p><a class="reference external" href="https://www.gnu.org/software/make/">make</a> should be installed.</p>
@@ -66,6 +73,37 @@ Instructions are system-dependent. Otherwise, if you have <a class="reference ex
 pip install -e .
 </pre></div>
 </div>
+</section>
+<section id="image-registration">
+<h2>Image registration<a class="headerlink" href="#image-registration" title="Permalink to this headline">¶</a></h2>
+<p>The following methods are included for image registration:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://github.com/glichtner/pystackreg">PyStackReg</a>: is an affine transformation algorithm.</p></li>
+<li><p><a class="reference external" href="https://github.com/NeLy-EPFL/ofco/tree/master/ofco">OFCO</a>: is a variational approach that learns a complex deformable transformation.</p></li>
+<li><p><a class="reference external" href="https://github.com/voxelmorph/voxelmorph">VoxelMorph</a>: is a learning-based deep neural network (DNN) based on an UNet.</p></li>
+<li><p><a class="reference external" href="https://github.com/voxelmorph/voxelmorph">HyperMorph</a>: is a hypernetwork that learns optimal VoxelMorph models according to some hyper-parameter.</p></li>
+<li><p><a class="reference external" href="https://ieeexplore.ieee.org/abstract/document/4515873/">ECC maximization</a>: Enhanced Correlation Coefficient (ECC) maximization is an affine algorithm for image registration implemented in <a class="reference external" href="https://opencv.org/">OpenCV</a>.</p></li>
+</ul>
+<p>To register an image or set of images you can easily use the script provided under <code class="docutils literal notranslate"><span class="pre">bin/register.py</span></code>. For example:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python bin/register.py --method ofco -i path/to/file.tif -o path/to/output.tif
+</pre></div>
+</div>
+<p>Registers <code class="docutils literal notranslate"><span class="pre">path/to/file.tif</span></code> using OFCO and saves the results in <code class="docutils literal notranslate"><span class="pre">path/to/output.tif</span></code>.</p>
+<p><strong>Warning: All input and output images are assumed to be in TIFF format! You can use</strong> <code class="docutils literal notranslate"><span class="pre">bin/raw2tiff</span></code> <strong>to convert raw 2-photon images to TIFF files</strong></p>
+<p>VoxelMorph and HyperMorph needs you to specify where the trained network is saved:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python bin/register.py --method voxelmorph --net models/vxm_drosophila_2d_1000.h5 -i path/to/file.tif -o path/to/output.tif
+</pre></div>
+</div>
+<p>If you want to use the same predicted deformation field to transform other images, simply add more files to the <code class="docutils literal notranslate"><span class="pre">-i</span></code> and <code class="docutils literal notranslate"><span class="pre">-o</span></code> arguments. For example:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python bin/register.py --method pystackreg -i reference.tif file1.tif file2.tif  -o reference-out.tif out1.tif out2.tif
+</pre></div>
+</div>
+<p>You can find more information with <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">bin/register.py</span> <span class="pre">--help</span></code>. For other scripts, check the <a class="reference external" href="#additional-scripts">additional scripts section</a>.</p>
+</section>
+<section id="notebooks">
+<h2>Notebooks<a class="headerlink" href="#notebooks" title="Permalink to this headline">¶</a></h2>
+<p>You can find a set of JupyterLab notebooks in <a class="reference external" href="/notebooks">notebooks/</a>.
+They require the 2-photon imaging dataset to be saved in a <code class="docutils literal notranslate"><span class="pre">data/</span></code> directory.</p>
 <p>Please create in the project root folder a <code class="docutils literal notranslate"><span class="pre">data/</span></code> link pointing to the directory
 with the dataset. For example:</p>
 <div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ ln -s /path/to/data <span class="s2">&quot;</span><span class="si">${</span><span class="nv">PWD</span><span class="si">}</span><span class="s2">/data&quot;</span>
@@ -85,15 +123,11 @@ drwxrwxrwx <span class="m">1</span> admin admin 256K Sep  <span class="m">8</spa
 <h2>Additional scripts<a class="headerlink" href="#additional-scripts" title="Permalink to this headline">¶</a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">bin/</span></code> folder contains scripts you may find useful to deal with
 the dataset.</p>
-<p>To run these scripts you need to <a class="reference external" href="#installation">install stabilize2p
-first</a>.</p>
+<p>To run these scripts you need to <a class="reference external" href="#installation">install stabilize2p first</a>.</p>
 <p>Scripts:</p>
 <ul class="simple">
 <li><p>raw2tiff: shell script to transform raw 2-photon video to a TIFF file</p></li>
-<li><p>pystackreg: shell script to apply pystackreg method to a tiff file to stabilize the video</p></li>
-<li><p>register.py: Voxelmorph’s
-<a class="reference external" href="https://github.com/voxelmorph/voxelmorph/blob/dev/scripts/tf/register.py">register.py</a>.
-Used to load a model and register an image.</p></li>
+<li><p>register.py: general registration script.</p></li>
 <li><p>train-voxelmorph.py: train a Voxelmorph model using a pool of files. Check <code class="docutils literal notranslate"><span class="pre">train-voxelmorph.py</span> <span class="pre">--help</span></code> for more information.</p></li>
 <li><p>train-hypermorph.py: train a Hypermorph model using a pool of files. Check <code class="docutils literal notranslate"><span class="pre">train-hypermorph.py</span> <span class="pre">--help</span></code> for more information.</p></li>
 </ul>
