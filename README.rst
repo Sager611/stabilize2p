@@ -97,7 +97,7 @@ To run these scripts you need to `install stabilize2p first <#installation>`_.
 
 Scripts:
 
--  raw2tiff: shell script to transform raw 2-photon video to a TIFF file
+-  raw2tiff: shell script to transform raw 2-photon video to a TIFF file.
 -  register.py: general registration script.
 -  train-voxelmorph.py: train a Voxelmorph model using a pool of files. Check ``train-voxelmorph.py --help`` for more information.
 -  train-hypermorph.py: train a Hypermorph model using a pool of files. Check ``train-hypermorph.py --help`` for more information.
