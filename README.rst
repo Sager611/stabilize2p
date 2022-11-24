@@ -1,9 +1,9 @@
 stabilize2p
 ==========
 
-.. image:: https://img.shields.io/badge/License-MIT-yellow.svg
-    :target: https://opensource.org/licenses/MIT
-    :alt: License: MIT
+.. image:: https://img.shields.io/badge/license-GNU%20GPL%20v2.0-yellow
+    :target: https://opensource.org/licenses/GPL-2.0
+    :alt: License: GNU GPL v2.0
 
 \
     
