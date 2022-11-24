@@ -5,7 +5,19 @@ stabilize2p
     :target: https://opensource.org/licenses/MIT
     :alt: License: MIT
 
+\
+    
+.. image:: assets/title.svg
+    :target: assets/report.pdf
+    :width: 50%
+    :alt: Non-linear transform applied to a 2-photon microscopy image
+    :align: right
+
+    
+    
 Different approaches to stabilize 2-photon imaging video.
+
+You can find a report on the methodologies implemented in this package in `assets/report.pdf <assets/report.pdf>`_.
 
 Documentation
 -------------
@@ -105,3 +117,8 @@ Scripts:
 -  register.py: general registration script.
 -  train-voxelmorph.py: train a Voxelmorph model using a pool of files. Check ``train-voxelmorph.py --help`` for more information.
 -  train-hypermorph.py: train a Hypermorph model using a pool of files. Check ``train-hypermorph.py --help`` for more information.
+
+About
+-----
+
+This project, done in Fall 2021, is in the context of the work being done in `Pavan Ramdya's Lab at EPFL <https://www.epfl.ch/labs/ramdya-lab/>`_.
